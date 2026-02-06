@@ -1,68 +1,47 @@
+import os
+import torch
 import gradio as gr
 from TTS.api import TTS
-import torch
-import os
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 
-# 1. टर्बो सेटअप और ऑटो-एग्रीमेंट
-os.environ["COQUI_TOS_AGREED"] = "1"
+# टर्बो लोड XTTS-v2
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
-print("🚀 पुराना इंजन रिपेयर होकर लोड हो रहा है...")
 tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
-def generate_voice(text, voice_sample, speed, pitch, remove_silence):
+def generate_voice(text, voice_sample, remove_silence):
     output_path = "output.wav"
     
-    # हकलाना और अलग भाषा रोकने के लिए सुधार
-    # हमने 'split_sentences=True' जोड़ा है ताकि भाषा न भटके
+    # सुधार 1: भाषा को 'hi' पर लॉक करना और 'Speed' बढ़ाना
     tts.tts_to_file(
-        text=text,
-        speaker_wav=voice_sample,
-        language="hi",
+        text=text, 
+        speaker_wav=voice_sample, 
+        language="hi",              # हिंदी पर सख्त नियंत्रण
         file_path=output_path,
-        speed=speed,
-        split_sentences=True 
+        split_sentences=True        # वाक्यों को तोड़कर पढ़ना ताकि भाषा न भटके
     )
     
-    # सन्नाटा हटाना (Silence Remover)
+    # सुधार 2: साइलेंस रिमूवर (आपकी मांग के अनुसार)
     if remove_silence:
         sound = AudioSegment.from_file(output_path)
         chunks = split_on_silence(sound, min_silence_len=400, silence_thresh=-45)
         combined = AudioSegment.empty()
         for chunk in chunks:
             combined += chunk
-        output_path = "final_fixed_voice.wav"
+        output_path = "clean_turbo_output.wav"
         combined.export(output_path, format="wav")
     
     return output_path
 
-# 2. डार्क मोड और यूआई (UI)
-custom_css = "body { background-color: #121212 !important; color: white !important; }"
+# --- इंटरफ़ेस ---
+with gr.Blocks() as demo:
+    gr.Markdown("# 🎙️ AI Voice Box - Perfect Hindi Fix")
+    input_text = gr.Textbox(label="सिर्फ हिंदी टेक्स्ट लिखें", value="नमस्ते, मैं अब शुद्ध हिंदी बोलूँगा।")
+    audio_input = gr.Audio(label="अपनी आवाज़ का सैंपल (.wav)", type="filepath")
+    silence_btn = gr.Checkbox(label="सन्नाटा हटाएँ (Silence Remover)", value=True)
+    btn = gr.Button("🚀 आवाज उत्पन्न करें")
+    audio_out = gr.Audio(label="आउटपुट")
 
-with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), css=custom_css) as demo:
-    # डार्क मोड फोर्स करें
-    demo.load(None, None, None, _js="() => { document.body.classList.add('dark'); }")
-    
-    gr.Markdown("# 🎙️ **एआई वॉयस बॉक्स - श्रीराम वाणी (Fixed Version)**")
-    
-    with gr.Row():
-        with gr.Column():
-            txt = gr.Textbox(label="हिंदी टेक्स्ट यहाँ लिखें", placeholder="जैसे: जय श्री गणेश। (वाक्य के अंत में पूर्ण विराम ज़रूर लगाएँ)")
-            audio_ref = gr.Audio(label="अपना साफ़ वॉयस सैंपल दें", type="filepath")
-            
-            with gr.Row():
-                speed_s = gr.Slider(0.5, 2.0, value=1.0, label="गति (Speed)")
-                # पिच एरर से बचने के लिए इसे अभी वॉयस सैंपल पर छोड़ें
-            
-            silence_btn = gr.Checkbox(label="Silence Remover (सन्नाटा हटाएँ)", value=True)
-            submit = gr.Button("🚀 Generate Voice", variant="primary")
-        
-        with gr.Column():
-            out = gr.Audio(label="आपका फाइनल ऑडियो")
+    btn.click(generate_voice, [input_text, audio_input, silence_btn], audio_out)
 
-    submit.click(generate_voice, [txt, audio_ref, speed_s, silence_btn], out)
-
-if __name__ == "__main__":
-    demo.launch(share=True)
+demo.launch(share=True)
