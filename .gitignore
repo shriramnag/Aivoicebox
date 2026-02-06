@@ -1,0 +1,18 @@
+# Temporary Files
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Audio Files
+*.wav
+*.mp3
+
+# Model Files (हम इन्हें हगिंग फेस से लोड करेंगे)
+/content/temp_model/
+/content/echo-tts/models/
+*.pth
+*.index
+
+# OS files
+.DS_Store
+
