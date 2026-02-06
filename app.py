@@ -5,18 +5,17 @@ import os
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 
-# 1. मॉडल सेटअप
-device = "cuda" if torch.cuda.is_available() else "cpu"
-# लाइसेंस एग्रीमेंट के लिए एनवायरनमेंट वेरिएबल
+# 1. मॉडल और एग्रीमेंट सेटअप
 os.environ["COQUI_TOS_AGREED"] = "1"
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
-print("🚀 मॉडल लोड हो रहा है...")
+print("🚀 टर्बो मॉडल लोड हो रहा है...")
 tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 def generate_voice(text, voice_sample, speed, pitch, remove_silence):
     output_path = "output.wav"
     
-    # वॉयस क्लोनिंग
+    # वॉयस जनरेशन
     tts.tts_to_file(
         text=text,
         speaker_wav=voice_sample,
@@ -26,44 +25,45 @@ def generate_voice(text, voice_sample, speed, pitch, remove_silence):
         pitch=pitch
     )
     
-    # साइलेंस रिमूवर (Silence Remover Button)
+    # सन्नाटा हटाना (Silence Remover)
     if remove_silence:
         sound = AudioSegment.from_file(output_path)
         chunks = split_on_silence(sound, min_silence_len=400, silence_thresh=-45)
         combined = AudioSegment.empty()
         for chunk in chunks:
             combined += chunk
-        output_path = "clean_final.wav"
+        output_path = "final_clean.wav"
         combined.export(output_path, format="wav")
     
     return output_path
 
-# 2. इंटरफ़ेस (UI) - एरर से बचने के लिए सबसे सरल तरीका
-# 'theme' और 'dark_mode' के झंझट को खत्म किया गया है
-with gr.Blocks() as demo:
-    gr.Markdown("# 🎙️ **एआई वॉयस बॉक्स - फाइनल फिक्स**")
+# 2. डार्क मोड के लिए कस्टम CSS
+custom_css = """
+body { background-color: #121212 !important; color: white !important; }
+.gradio-container { background-color: #121212 !important; }
+"""
+
+# 3. इंटरफ़ेस डिज़ाइन
+with gr.Blocks(css=custom_css) as demo:
+    gr.Markdown("# 🎙️ **एआई वॉयस बॉक्स - टर्बो हाई स्पीड**")
     
     with gr.Row():
         with gr.Column():
-            txt = gr.Textbox(label="हिंदी टेक्स्ट यहाँ लिखें")
-            audio_ref = gr.Audio(label="वॉइस सैंपल अपलोड करें", type="filepath")
+            txt = gr.Textbox(label="हिंदी टेक्स्ट यहाँ लिखें", placeholder="नमस्ते, मैं आपकी कैसे मदद कर सकता हूँ?")
+            audio_ref = gr.Audio(label="अपना वॉयस सैंपल दें", type="filepath")
             
             with gr.Row():
-                speed_slider = gr.Slider(0.5, 2.0, value=1.0, label="Speed (गति)")
-                pitch_slider = gr.Slider(-10, 10, value=0, label="Pitch (पिच)")
+                speed_s = gr.Slider(0.5, 2.0, value=1.0, label="गति (Speed)")
+                pitch_s = gr.Slider(-10, 10, value=0, label="पिच (Pitch)")
             
-            silence_check = gr.Checkbox(label="Silence Remover", value=True)
-            submit_btn = gr.Button("🚀 आवाज़ बनाएँ", variant="primary")
+            silence_btn = gr.Checkbox(label="Silence Remover बटन", value=True)
+            submit = gr.Button("🚀 Generate Voice", variant="primary")
         
         with gr.Column():
-            audio_out = gr.Audio(label="आउटपुट")
+            out = gr.Audio(label="आउटपुट ऑडियो")
 
-    submit_btn.click(
-        fn=generate_voice, 
-        inputs=[txt, audio_ref, speed_slider, pitch_slider, silence_check], 
-        outputs=audio_out
-    )
+    submit.click(generate_voice, [txt, audio_ref, speed_s, pitch_s, silence_btn], out)
 
+# बिना किसी 'dark_mode' आर्गुमेंट के लॉन्च करें
 if __name__ == "__main__":
-    # डार्क मोड अब यहाँ से कंट्रोल होगा
-    demo.launch(share=True, dark_mode=True)
+    demo.launch(share=True)
