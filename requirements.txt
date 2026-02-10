@@ -4,4 +4,4 @@ torch>=2.0.0
 pydub
 num2words
 ffmpeg
-huggingface_hub
+huggingface_hub==0.24.0
