@@ -4,3 +4,4 @@ gradio
 huggingface_hub
 transformers
 torch
+pip install TTS pydub regex soundfile numpy
