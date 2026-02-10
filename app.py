@@ -1,33 +1,38 @@
 import os
-import torch  # <--- यह लाइन एरर ठीक कर देगी
+import torch
 import gradio as gr
 from TTS.api import TTS
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
+import re
 
-# लाइसेंस एग्रीमेंट ऑटो-एक्सेप्ट
+# टर्बो सेटअप (2026 अपडेट)
 os.environ["COQUI_TOS_AGREED"] = "1"
-
-# डिवाइस सेटअप (GPU/CPU)
 device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"🚀 टर्बो इंजन {device} पर लोड हो रहा है...")
-
-# मॉडल लोड
 tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
+def perfect_hindi_cleaner(text):
+    # यह सिर्फ हिंदी अक्षरों (अ-ज्ञ) और पूर्ण विराम (।) को रहने देगा
+    # बाकी सब कुछ (चीनी/अंग्रेजी अक्षर) अपने आप साफ हो जाएगा
+    clean_text = re.sub(r'[^\u0900-\u097F\s।,.?]', '', text)
+    return clean_text
+
 def generate_voice(text, voice_sample, remove_silence):
-    output_path = "output.wav"
+    # 1. टेक्स्ट को शुद्ध करना
+    clean_text = perfect_hindi_cleaner(text)
+    output_path = "final_shriram_voice.wav"
     
-    # भाषा को 'hi' पर लॉक किया गया है ताकि हकलाना बंद हो
+    # 2. वॉयस जनरेशन (Strict Mode)
+    # split_sentences=True हकलाने को रोकता है
     tts.tts_to_file(
-        text=text, 
+        text=clean_text, 
         speaker_wav=voice_sample, 
-        language="hi",
+        language="hi",              # हिंदी भाषा पर पूर्ण नियंत्रण
         file_path=output_path,
-        split_sentences=True 
+        split_sentences=True        
     )
     
-    # साइलेंस रिमूवर (Silence Remover Button)
+    # 3. साइलेंस रिमूवर (बिना किसी देरी के)
     if remove_silence:
         sound = AudioSegment.from_file(output_path)
         chunks = split_on_silence(sound, min_silence_len=400, silence_thresh=-45)
@@ -39,24 +44,22 @@ def generate_voice(text, voice_sample, remove_silence):
     
     return output_path
 
-# --- इंटरफ़ेस (Dark Mode + Orange Theme) ---
+# --- इंटरफ़ेस (Dark Mode) ---
 with gr.Blocks(theme=gr.themes.Default(primary_hue="orange")) as demo:
-    # डार्क मोड फोर्स करें
+    # एरर फ्री डार्क मोड
     demo.load(None, None, None, _js="() => { document.body.classList.add('dark'); }")
-    
-    gr.Markdown("# 🎙️ **एआई वॉयस बॉक्स - श्रीराम वाणी (Turbo Fix)**")
+    gr.Markdown("# 🎙️ **श्रीराम वाणी - शुद्ध हिंदी इंजन (v2)**")
     
     with gr.Row():
         with gr.Column():
-            input_text = gr.Textbox(label="हिंदी टेक्स्ट यहाँ लिखें", placeholder="जैसे: जय श्री गणेश।")
-            audio_input = gr.Audio(label="अपना साफ़ वॉयस सैंपल दें (.wav)", type="filepath")
-            silence_btn = gr.Checkbox(label="फालतू सन्नाटा हटाएँ (Silence Remover)", value=True)
-            btn = gr.Button("🚀 आवाज़ उत्पन्न करें", variant="primary")
+            txt_input = gr.Textbox(label="सिर्फ हिंदी लिखें", value="नमस्ते, अब मैं सिर्फ शुद्ध हिंदी बोलूँगा।")
+            audio_ref = gr.Audio(label="वॉइस सैंपल (.wav)", type="filepath")
+            silence_on = gr.Checkbox(label="सन्नाटा हटाएँ (Silence Remover)", value=True)
+            run_btn = gr.Button("🚀 शुद्ध आवाज़ बनाएँ", variant="primary")
         
         with gr.Column():
-            audio_out = gr.Audio(label="आपका फाइनल ऑडियो")
+            audio_out = gr.Audio(label="शुद्ध हिंदी आउटपुट")
 
-    btn.click(generate_voice, [input_text, audio_input, silence_btn], audio_out)
+    run_btn.click(generate_voice, [txt_input, audio_ref, silence_on], audio_out)
 
-if __name__ == "__main__":
-    demo.launch(share=True)
+demo.launch(share=True)
