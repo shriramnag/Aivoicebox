@@ -2,6 +2,7 @@ import os
 from pydub import AudioSegment
 
 def combine_chunks(chunk_files, output_file="shriram_final_pro.wav"):
+    """सभी ऑडियो टुकड़ों को बिना किसी शोर के जोड़ना"""
     if not chunk_files:
         return None
 
@@ -13,7 +14,8 @@ def combine_chunks(chunk_files, output_file="shriram_final_pro.wav"):
             try:
                 segment = AudioSegment.from_wav(file)
                 combined += segment
-                os.remove(file) # पुराने टुकड़े हटाना
+                # पुराने टुकड़ों को हटाना ताकि मेमोरी फुल न हो [cite: 2026-01-06]
+                os.remove(file) 
             except Exception as e:
                 print(f"Error processing {file}: {e}")
                 
