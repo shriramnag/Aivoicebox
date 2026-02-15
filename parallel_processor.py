@@ -10,12 +10,14 @@ def combine_chunks(chunk_files, output_file="shriram_final_pro.wav"):
 
     for file in chunk_files:
         if os.path.exists(file):
-            combined += AudioSegment.from_wav(file)
             try:
-                os.remove(file) # मेमोरी साफ करना
-            except:
-                pass
+                segment = AudioSegment.from_wav(file)
+                combined += segment
+                os.remove(file) # पुराने टुकड़े हटाना
+            except Exception as e:
+                print(f"Error processing {file}: {e}")
                 
     output_path = os.path.abspath(output_file)
     combined.export(output_path, format="wav")
+    print(f"✅ फाइनल फाइल तैयार: {output_path}")
     return output_path
