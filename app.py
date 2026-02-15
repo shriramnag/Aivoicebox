@@ -7,7 +7,6 @@ from app_config import MODEL_CONFIG
 from text_engine import split_into_chunks
 from parallel_processor import combine_chunks
 
-# टर्बो सेटअप [cite: 2026-01-06]
 os.environ["COQUI_TOS_AGREED"] = "1"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -17,27 +16,26 @@ tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 def generate_voice(text, voice_sample, progress=gr.Progress()):
     if not text or not voice_sample:
-        raise gr.Error("कृपया टेक्स्ट और वॉइस सैंपल दोनों प्रदान करें।")
+        raise gr.Error("कृपया स्क्रिप्ट और वॉइस सैंपल दें।")
     
-    chunks = split_into_chunks(text) 
+    chunks = split_into_chunks(text)
     chunk_files = []
     
     for i, chunk in enumerate(chunks):
-        progress(i/len(chunks), desc=f"प्रोसेसिंग: {i+1}/{len(chunks)}")
+        progress(i/len(chunks), desc=f"वाक्य {i+1}/{len(chunks)} जारी है...")
         name = f"chunk_{i}.wav"
         tts.tts_to_file(text=chunk, speaker_wav=voice_sample, language="hi", file_path=name)
         chunk_files.append(name)
     
     return combine_chunks(chunk_files)
 
-# प्रोफेशनल UI [cite: 2026-01-06]
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange")) as demo:
-    gr.Markdown("# 🎙️ श्रीराम वाणी - प्रोफेशनल AI (10K Support)")
+    gr.Markdown("# 🎙️ श्रीराम वाणी - टर्बो v2")
     with gr.Row():
         with gr.Column():
-            txt = gr.Textbox(label="लंबी स्क्रिप्ट पेस्ट करें", lines=15)
-            ref = gr.Audio(label="वॉइस सैंपल", type="filepath")
-            btn = gr.Button("🚀 टर्बो जनरेट", variant="primary")
+            txt = gr.Textbox(label="10,000 कैरेक्टर तक की स्क्रिप्ट", lines=15)
+            ref = gr.Audio(label="वॉइस सैंपल (.wav)", type="filepath")
+            btn = gr.Button("🚀 टर्बो जनरेट करें", variant="primary")
         with gr.Column():
             out = gr.Audio(label="फाइनल ऑडियो")
     btn.click(generate_voice, [txt, ref], out)
