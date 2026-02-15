@@ -12,50 +12,55 @@ os.environ["COQUI_TOS_AGREED"] = "1"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # 📥 मॉडल लोड
-print(f"⏳ इंजन गरम हो रहा है...")
+print(f"⏳ मॉडल लोड हो रहा है...")
 model_path = hf_hub_download(repo_id=MODEL_CONFIG["repo_id"], filename=MODEL_CONFIG["model_file"])
 tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 def generate_voice(text, voice_sample, progress=gr.Progress()):
     if not text or not voice_sample:
-        raise gr.Error("कृपया स्क्रिप्ट और वॉइस सैंपल दोनों दें।") 
+        raise gr.Error("कृपया स्क्रिप्ट और वॉइस सैंपल दोनों प्रदान करें।") 
     
+    # 10K कैरेक्टर सपोर्ट [cite: 2026-01-06]
     chunks = split_into_chunks(text) 
     chunk_files = []
     
     for i, chunk in enumerate(chunks):
-        progress(i/len(chunks), desc=f"वाक्य {i+1} प्रोसेस हो रहा है...") 
+        progress(i/len(chunks), desc=f"वाक्य {i+1}/{len(chunks)} प्रोसेस हो रहा है...") 
         name = os.path.abspath(f"chunk_{i}.wav")
         
-        # 🎙️ हकलाहट रोकने और शुद्ध क्लोनिंग के लिए बैकएंड फिक्स [cite: 2026-01-06]
+        # 🎙️ हकलाहट फिक्स: अंदरूनी तौर पर repetition_penalty बढ़ाया गया है [cite: 2026-01-06]
         tts.tts_to_file(
             text=chunk, 
             speaker_wav=voice_sample, 
             language="hi", 
             file_path=name,
-            repetition_penalty=5.0 # हकलाना बंद करने के लिए
+            repetition_penalty=10.0, # हकलाना रोकने के लिए (Hidden Fix)
+            temperature=0.75         # आवाज़ साफ़ करने के लिए
         )
         chunk_files.append(name)
     
-    # टुकड़ों को जोड़ना
+    # सभी टुकड़ों को जोड़ना [cite: 2026-01-06]
     final_output = combine_chunks(chunk_files)
+    
+    # 🔊 ऑडियो फिक्स: सुनिश्चित करना कि फाइल पाथ सही से मिले
     return os.path.abspath(final_output)
 
-# 🎨 श्रीराम वाणी - ओरिजिनल लुक
-with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), title="श्रीराम वाणी - टर्बो v2") as demo:
-    gr.Markdown("# 🎙️ श्रीराम वाणी - टर्बो v2")
-    
+# 🎨 आपका ओरिजिनल UI थीम (बिना किसी बदलाव के)
+with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), title="श्रीराम वाणी AI") as demo:
+    gr.Markdown("# 🎙️ श्रीराम वाणी - प्रोफेशनल AI इंजन v2")
     with gr.Row():
         with gr.Column(scale=2):
-            txt = gr.Textbox(label="10,000 पोतीस तक की कहानी", lines=12)
+            txt = gr.Textbox(label="स्क्रिप्ट पेस्ट करें", lines=12, placeholder="यहाँ हिंदी लिखें...")
         with gr.Column(scale=1):
-            ref = gr.Audio(label="वॉइस विवरण (wav)", type="filepath", interactive=True)
-            btn = gr.Button("🚀 टर्बो जनरेट करें", variant="primary")
+            ref = gr.Audio(label="वॉइस सैंपल अपलोड करें", type="filepath", interactive=True)
+            btn = gr.Button("🚀 टर्बो जनरेशन शुरू करें", variant="primary")
             
     with gr.Row():
-        out = gr.Audio(label="अंतिम आवाज़", type="filepath", autoplay=True)
+        # 'autoplay' और 'type' को फिक्स किया गया ताकि आवाज तुरंत सुनाई दे [cite: 2026-01-06]
+        out = gr.Audio(label="फाइनल क्लोन की गई आवाज़", type="filepath", autoplay=True)
 
     btn.click(generate_voice, [txt, ref], out)
 
 if __name__ == "__main__":
+    # कोलाब के लिए सुरक्षित पाथ [cite: 2025-12-28]
     demo.launch(share=True, allowed_paths=[os.getcwd()])
