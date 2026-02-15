@@ -20,6 +20,7 @@ def generate_voice(text, voice_sample, speed, temp, progress=gr.Progress()):
     if not text or not voice_sample:
         raise gr.Error("कृपया स्क्रिप्ट और वॉइस सैंपल दोनों प्रदान करें।") 
     
+    # 10,000 कैरेक्टर को टुकड़ों में बांटना [cite: 2026-01-06]
     chunks = split_into_chunks(text) 
     chunk_files = []
     
@@ -27,19 +28,18 @@ def generate_voice(text, voice_sample, speed, temp, progress=gr.Progress()):
         progress(i/len(chunks), desc=f"प्रोसेसिंग: {i+1}/{len(chunks)}") 
         name = os.path.abspath(f"chunk_{i}.wav")
         
-        # 🎙️ एडवांस्ड क्लोनिंग सेटिंग्स (फर्क को खत्म करने के लिए) [cite: 2026-01-06]
+        # वॉइस क्लोनिंग [cite: 2025-11-23]
         tts.tts_to_file(
             text=chunk, 
             speaker_wav=voice_sample, 
             language="hi", 
             file_path=name,
             speed=speed,
-            temperature=temp, # आवाज़ में भावनाएं जोड़ने के लिए
-            top_p=0.85,       # स्पष्टता के लिए
-            repetition_penalty=2.0 # हकलाना रोकने के लिए
+            temperature=temp
         )
         chunk_files.append(name)
     
+    # सभी टुकड़ों को जोड़ना [cite: 2026-01-06]
     final_output = combine_chunks(chunk_files)
     return os.path.abspath(final_output)
 
@@ -49,17 +49,15 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), title="श्री�
     
     with gr.Row():
         with gr.Column(scale=2):
-            txt = gr.Textbox(label="स्क्रिप्ट (10,000 कैरेक्टर तक)", lines=12)
+            txt = gr.Textbox(label="स्क्रिप्ट (10,000 कैरेक्टर तक)", lines=12, placeholder="यहाँ अपनी कहानी लिखें...")
         with gr.Column(scale=1):
-            ref = gr.Audio(label="वॉइस सैंपल (साफ़ आवाज़ अपलोड करें)", type="filepath", interactive=True)
-            
-            # 🎚️ नए कंट्रोल स्लाइडर्स (आवाज़ को सुधारने के लिए)
-            speed = gr.Slider(label="बोलने की रफ़्तार (Speed)", minimum=0.5, maximum=1.5, value=1.0, step=0.1)
-            temp = gr.Slider(label="आवाज़ की गहराई (Emotion)", minimum=0.1, maximum=1.0, value=0.7, step=0.05)
-            
-            btn = gr.Button("🚀 टर्बो जनरेशन शुरू करें", variant="primary")
+            ref = gr.Audio(label="वॉइस सैंपल अपलोड करें", type="filepath", interactive=True)
+            speed = gr.Slider(label="गति (Speed)", minimum=0.5, maximum=1.5, value=1.0, step=0.1)
+            temp = gr.Slider(label="आवाज़ की गहराई (Emotion)", minimum=0.1, maximum=1.0, value=0.7, step=0.05)
+            btn = gr.Button("🚀 टर्बो जनरेशन प्रारंभ करें", variant="primary")
             
     with gr.Row():
+        # 'type=filepath' यहाँ सबसे ज़रूरी है
         out = gr.Audio(label="फाइनल क्लोन की गई आवाज़", type="filepath", autoplay=True)
 
     btn.click(generate_voice, [txt, ref, speed, temp], out)
