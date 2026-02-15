@@ -1,38 +1,21 @@
 import os
 from pydub import AudioSegment
-from audio_cleaner import clean_stutter
 
 def combine_chunks(chunk_files, output_file="shriram_final_pro.wav"):
-    """
-    सभी ऑडियो टुकड़ों को प्रोसेस करके एक फाइनल फाइल बनाता है।
-   
-    """
     if not chunk_files:
         return None
 
-    # खाली ऑडियो सेगमेंट बनाना
     combined = AudioSegment.empty()
-    
     print(f"🔄 कुल {len(chunk_files)} टुकड़ों को जोड़ा जा रहा है...")
 
     for file in chunk_files:
         if os.path.exists(file):
+            combined += AudioSegment.from_wav(file)
             try:
-                # 1. पहले हर टुकड़े से सन्नाटा और हकलाना हटाना
-                clean_stutter(file)
+                os.remove(file) # मेमोरी साफ करना
+            except:
+                pass
                 
-                # 2. साफ किए गए टुकड़े को मुख्य फाइल में जोड़ना
-                combined += AudioSegment.from_wav(file)
-                
-                # 3. काम होने के बाद छोटे टुकड़े को डिलीट करना (मेमोरी बचाने के लिए)
-                os.remove(file)
-            except Exception as e:
-                print(f"⚠️ फाइल {file} को जोड़ने में एरर: {e}")
-        else:
-            print(f"❌ फाइल नहीं मिली: {file}")
-
-    # 4. फाइनल फाइल को सेव करना
-    combined.export(output_file, format="wav")
-    print(f"✅ फाइनल ऑडियो तैयार: {output_file}")
-    
-    return output_file
+    output_path = os.path.abspath(output_file)
+    combined.export(output_path, format="wav")
+    return output_path
