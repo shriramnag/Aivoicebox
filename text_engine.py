@@ -1,9 +1,11 @@
 import re
-from language_guard import force_hindi_only
 
-def split_into_chunks(text, chunk_size=250):
-    text = force_hindi_only(text)
-    # वाक्यों को '।' के आधार पर तोड़ें [cite: 2026-01-06]
+def clean_hindi(text):
+    # सिर्फ हिंदी अक्षरों को अनुमति [cite: 2025-11-23]
+    return re.sub(r'[^\u0900-\u097F\s।,.?!]', '', text)
+
+def split_into_chunks(text, chunk_size=200):
+    text = clean_hindi(text)
     sentences = re.split(r'(?<=[।?!])\s+', text)
     chunks, current = [], ""
     for s in sentences:
@@ -14,3 +16,4 @@ def split_into_chunks(text, chunk_size=250):
             current = s + " "
     if current: chunks.append(current.strip())
     return chunks
+    
