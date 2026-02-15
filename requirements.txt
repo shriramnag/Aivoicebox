@@ -1,5 +1,4 @@
-coqui-tts==0.27.5
-gradio==4.44.1
-huggingface_hub==0.23.0
+coqui-tts
+gradio
+huggingface_hub
 pydub
-num2words
