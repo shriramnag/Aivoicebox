@@ -1,67 +1,95 @@
 import os
+import torch
 import gradio as gr
+import shutil
 from TTS.api import TTS
+from huggingface_hub import hf_hub_download
 
-# 🚩 फाइल पाथ सेटिंग्स (आपके रिपॉजिटरी के अनुसार)
-# ध्यान दें: कोलाब में रन करते समय यह पाथ सही होना चाहिए
-BASE_PATH = "/content/Aivoicebox" 
-MODEL_PATH = os.path.join(BASE_PATH, "Ramai.pth")
-CONFIG_PATH = os.path.join(BASE_PATH, "config.json")
-SPEAKER_WAV = os.path.join(BASE_PATH, "speaker.wav")
-
-print("🚀 श्रीराम वाणी वर्किंग मॉडल लोड हो रहा है...")
-
-# XTTS v2 लोड करना (बिना किसी बाहरी डाउनलोड एरर के) [cite: 2026-01-06]
+# ✅ आपके प्रोजेक्ट की फाइलों से इम्पोर्ट
 try:
-    tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2", gpu=True)
+    from app_config import MODEL_CONFIG
+    from text_engine import split_into_chunks
+    from parallel_processor import combine_chunks
+except ImportError:
+    print("⚠️ कुछ सहायक फाइलें नहीं मिलीं, कृपया सुनिश्चित करें कि brain.py और अन्य फाइलें मौजूद हैं।")
+
+# ⚡ टर्बो और पाथ सेटअप [cite: 2026-01-06]
+os.environ["COQUI_TOS_AGREED"] = "1"
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+# 📥 इंजन लोड (हगिंग फेस से सीधे आपके रिपो के अनुसार)
+print("🚀 श्रीराम वाणी: 100% मैच इंजन लोड हो रहा है...")
+try:
+    # आपके स्क्रीनशॉट के अनुसार सही रिपो आईडी
+    REPO_ID = "Shriramnag/My-Shriram-Voice" 
+    MODEL_FILE = "Ramai.pth"
+    model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
+    tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 except Exception as e:
-    print(f"इंजन लोड करने में समस्या: {e}")
+    print(f"❌ लोड एरर: {e}")
+    tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
-def generate_shriram_voice(input_text):
-    if not input_text.strip():
-        return "कृपया कुछ टेक्स्ट लिखें..."
-    
-    output_file = "shriram_final_output.wav"
-    
-    try:
-        # 🎙️ आपकी मास्टर सेटिंग्स (Locked)
-        # इसमें 0.9 Deep Match और 1.0 Emotion का प्रभाव सेट है
+def generate_voice(text, voice_sample, speed, pitch, progress=gr.Progress()):
+    if not text or not voice_sample:
+        raise gr.Error("कृपया स्क्रिप्ट और वॉइस सैंपल दोनों प्रदान करें।") 
+
+    output_folder = "outputs"
+    if os.path.exists(output_folder): shutil.rmtree(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
+
+    # लंबी स्क्रिप्ट को छोटे हिस्सों में बांटना [cite: 2026-01-06]
+    chunks = split_into_chunks(text) 
+    chunk_files = []
+
+    for i, chunk in enumerate(chunks):
+        progress((i+1)/len(chunks), desc=f"🚀 टर्बो क्लोनिंग: {i+1}/{len(chunks)}") 
+        name = os.path.join(output_folder, f"chunk_{i}.wav")
+
+        # 🎙️ मास्टर सेटिंग्स: Deep Match और Pitch
         tts.tts_to_file(
-            text=input_text,
-            speaker_wav=SPEAKER_WAV, 
-            language="hi",
-            file_path=output_file,
-            speed=1.0,               # टर्बो हाई स्पीड [cite: 2026-01-06]
-            repetition_penalty=10.0,   # हकलाहट रोकने के लिए
-            temperature=0.75,          # गहराई और इमोशन के लिए
-            gpt_cond_len=3             # सटीक क्लोनिंग के लिए
+            text=chunk, 
+            speaker_wav=voice_sample, 
+            language="hi", 
+            file_path=name,
+            speed=speed,               
+            repetition_penalty=10.0,   
+            temperature=pitch,         
+            top_p=0.85,                
+            top_k=50,                  
+            enable_text_splitting=False 
         )
-        return output_file
-    
-    except Exception as e:
-        return f"त्रुटि: {str(e)}"
+        chunk_files.append(name)
 
-# 🚩 ग्राफिकल इंटरफेस (UI) - जो कोलाब में पब्लिक लिंक देगा
-with gr.Blocks(title="🚩 श्रीराम वाणी - AI मास्टर 🚩") as demo:
-    gr.Markdown("# 🚩 श्रीराम वाणी - हिंदी वॉयस क्लोन टर्बो")
-    gr.Markdown("### पुरानी वर्किंग सेटिंग्स और हाई स्पीड के साथ [cite: 2026-01-06]")
+    final_output = os.path.abspath("shriram_final_pro.wav")
+    combine_chunks(chunk_files, output_file=final_output)
+    return final_output
+
+# 🎨 आपका पुराना शानदार UI
+with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), title="श्रीराम वाणी AI") as demo:
+    gr.Markdown("# 🎙️ श्रीराम वाणी - 100% मैच टर्बो इंजन")
     
     with gr.Row():
-        with gr.Column():
-            input_box = gr.Textbox(
-                label="अपनी स्क्रिप्ट यहाँ लिखें", 
-                lines=8, 
-                placeholder="यहाँ हिंदी टेक्स्ट पेस्ट करें..."
+        with gr.Column(scale=2):
+            txt = gr.Textbox(label="स्क्रिप्ट पेस्ट करें", lines=12, placeholder="यहाँ हिंदी लिखें...")
+        with gr.Column(scale=1):
+            ref = gr.Audio(
+                label="वॉइस सैंपल यहाँ अपलोड करें", 
+                type="filepath", 
+                interactive=True,
+                visible=True
             )
-            btn = gr.Button("आवाज़ जनरेट करें 🚀", variant="primary")
-        
-        with gr.Column():
-            output_audio = gr.Audio(label="सुनिए श्रीराम वाणी", type="filepath")
+            
+            # स्लाइडर्स जो आपको पसंद थे
+            speed_slider = gr.Slider(label="आवाज़ की रफ़्तार (Speed)", minimum=0.5, maximum=2.0, value=1.0, step=0.1)
+            pitch_slider = gr.Slider(label="आवाज़ की गहराई (Deep Match)", minimum=0.5, maximum=1.0, value=0.80, step=0.05)
+            
+            btn = gr.Button("🚀 टर्बो जनरेट करें", variant="primary")
+            
+    with gr.Row():
+        out = gr.Audio(label="फाइनल क्लोन की गई आवाज़", type="filepath", autoplay=True)
 
-    # बटन क्लिक एक्शन
-    btn.click(fn=generate_shriram_voice, inputs=input_box, outputs=output_audio)
+    btn.click(generate_voice, [txt, ref, speed_slider, pitch_slider], out)
 
-# 🚩 पब्लिक यूआरएल (Public URL) के लिए शेयर चालू करना
 if __name__ == "__main__":
-    # share=True से कोलाब में नीला लिंक मिलेगा
-    demo.launch(share=True, debug=True)
+    # पब्लिक लिंक के लिए share=True
+    demo.launch(share=True, debug=True, allowed_paths=[os.getcwd(), "/content/"])
