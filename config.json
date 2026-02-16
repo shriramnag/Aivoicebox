@@ -1,0 +1,18 @@
+{
+    "model_type": "xtts",
+    "datasets": [],
+    "languages": ["hi", "en"],
+    "audio": {
+        "sample_rate": 22050,
+        "do_trim_silence": true,
+        "resample": false
+    },
+    "temperature": 0.75,
+    "length_penalty": 1.0,
+    "repetition_penalty": 20.0,
+    "top_k": 50,
+    "top_p": 0.85,
+    "gpt_cond_len": 3,
+    "max_ref_len": 10
+}
+
