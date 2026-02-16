@@ -1,46 +1,46 @@
 import os
+import json
 from TTS.api import TTS
-from brain import get_smart_text, save_to_memory, check_cache
 from huggingface_hub import hf_hub_download
 
-# 📍 आपके हगिंग फेस का सही पता
+# 📍 हगिंग फेस का बिल्कुल सही रास्ता (आपके स्क्रीनशॉट के अनुसार)
 REPO_ID = "Shriramnag/My-Shriram-Voice" 
 MODEL_FILE = "Ramai.pth"
 
-def download_and_load_model():
-    print("🚀 हगिंग फेस से रमाबाई मॉडल (Ramai.pth) लोड हो रहा है...")
+# डमी कॉन्फ़िग बनाना ताकि 'Unknown config' एरर न आए
+TEMP_CONFIG = "temp_config.json"
+config_data = {
+    "model_type": "xtts",
+    "languages": ["hi"],
+    "audio": {"sample_rate": 22050},
+    "repetition_penalty": 20.0, # हकलाहट रोकने के लिए
+    "gpt_cond_len": 3
+}
+
+with open(TEMP_CONFIG, "w") as f:
+    json.dump(config_data, f)
+
+def load_shriram_model():
+    print(f"🚀 हगिंग फेस ({REPO_ID}) से मॉडल लोड हो रहा है...")
     try:
-        # मॉडल फाइल डाउनलोड करना [cite: 2026-01-06]
-        model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
+        # मॉडल डाउनलोड करना [cite: 2026-01-06]
+        m_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
         
-        # चूँकि XTTS के लिए एक config.json भी चाहिए होती है, 
-        # यदि आपने अपलोड नहीं की है, तो यह डिफॉल्ट का उपयोग करेगा।
-        return TTS(model_path=model_path, config_path=None, gpu=True)
+        # मास्टर सेटिंग्स के साथ मॉडल शुरू करना [cite: 2026-02-16]
+        return TTS(model_path=m_path, config_path=TEMP_CONFIG, gpu=True)
     except Exception as e:
-        print(f"❌ एरर: {e}")
-        # अगर डाउनलोड फेल हो तो डिफॉल्ट लोड करें ताकि प्रोजेक्ट न रुके
+        print(f"❌ लोड करने में दिक्कत: {e}")
         return TTS("tts_models/multilingual/multi-dataset/xtts_v2", gpu=True)
 
-# इंजन चालू करें
-tts = download_and_load_model()
+tts = load_shriram_model()
 
 def generate_voice(text, output_file="shriram_output.wav"):
-    # ⚡ टर्बो कैश चेक करें (समय बचाने के लिए) [cite: 2026-01-06]
-    cached = check_cache(text, 0.9, 1.0)
-    if cached: return cached
-
-    # 🧠 स्मार्ट सुधार (हकलाहट रोकने के लिए)
-    clean_text = get_smart_text(text)
-    
-    # 🎙️ लॉक सेटिंग्स: 0.9 Deep Match, 1.0 Emotion
+    # लॉक सेटिंग्स: 0.9 Deep Match जैसा अहसास और 1.0 Emotion
     tts.tts_to_file(
-        text=clean_text,
-        speaker_wav="speaker.wav", # सुनिश्चित करें यह फाइल GitHub पर है
+        text=text,
+        speaker_wav="speaker.wav", # इसे कोलाब में अपलोड करें [cite: 2026-02-16]
         language="hi",
         file_path=output_file,
-        speed=1.0,
-        repetition_penalty=20.0
+        speed=1.0 # टर्बो हाई स्पीड [cite: 2026-01-06]
     )
-    
-    save_to_memory(text)
     return output_file
