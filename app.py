@@ -3,29 +3,35 @@ import torch
 import gradio as gr
 import shutil
 from TTS.api import TTS
+from huggingface_hub import hf_hub_download
 from pydub import AudioSegment
 
-# 🚩 पुराने प्रोजेक्ट की फाइलें इम्पोर्ट
+# 🚩 आपके पुराने प्रोजेक्ट की फाइलें [cite: 2026-02-16]
 try:
     from text_engine import split_into_chunks
     from parallel_processor import combine_chunks
 except ImportError:
     pass
 
-# ⚡ टर्बो इंजन सेटअप
+# ⚡ टर्बो इंजन और हगिंग फेस सेटअप [cite: 2026-01-06]
 os.environ["COQUI_TOS_AGREED"] = "1"
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+# 📥 हगिंग फेस से आपका Ramai.pth लोड करना
+REPO_ID = "Shriramnag/My-Shriram-Voice" 
+MODEL_FILE = "Ramai.pth"
+
+print("🚀 हगिंग फेस से मॉडल लोड हो रहा है...")
+model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
 tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 def apply_shriram_magic(file_path, bass_gain, amp_gain):
-    """आवाज़ में भारीपन और पावर जोड़ना (बिना एरर के)"""
+    """आवाज़ को भारी और पावरफुल बनाना"""
     sound = AudioSegment.from_wav(file_path)
+    sound = sound + amp_gain # एमप्लीफायर (Power)
     
-    # एमप्लीफायर (Power)
-    sound = sound + amp_gain
-    
-    # भारीपन (Bass) के लिए पिच को थोड़ा सा कम करना (Deep Voice Logic)
     if bass_gain > 0:
+        # आवाज़ को गहरा (Deep) करने के लिए पिच एडजस्टमेंट
         new_sample_rate = int(sound.frame_rate * (1.0 - (bass_gain / 100)))
         sound = sound._spawn(sound.raw_data, overrides={'frame_rate': new_sample_rate})
         sound = sound.set_frame_rate(44100)
@@ -36,9 +42,9 @@ def apply_shriram_magic(file_path, bass_gain, amp_gain):
 
 def generate_voice(text, voice_sample, speed, pitch, emotion, bass, amp, progress=gr.Progress()):
     if not text or not voice_sample:
-        raise gr.Error("स्क्रिप्ट और सैंपल दें।") 
+        raise gr.Error("स्क्रिप्ट और वॉइस सैंपल ज़रूरी हैं।") 
 
-    # 🚀 आपका पुराना चंक प्रोसेसिंग (Unchanged) [cite: 2026-02-16]
+    # 🚀 आपका पुराना चंक प्रोसेसिंग लॉजिक (Unchanged) [cite: 2026-02-16]
     output_folder = "outputs"
     if os.path.exists(output_folder): shutil.rmtree(output_folder)
     os.makedirs(output_folder, exist_ok=True)
@@ -60,28 +66,28 @@ def generate_voice(text, voice_sample, speed, pitch, emotion, bass, amp, progres
     combined_temp = "combined_temp.wav"
     combine_chunks(chunk_files, output_file=combined_temp)
     
-    # ✨ भारीपन और एमप्लीफायर जोड़ें
+    # ✨ भारी वजन और पावर जोड़ें
     return apply_shriram_magic(combined_temp, bass, amp)
 
-# 🎨 रॉयल UI
-with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange")) as demo:
-    gr.Markdown("# 🎙️ श्रीराम वाणी - भारी आवाज़ स्टूडियो")
+# 🎨 आपका रॉयल UI
+with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), title="श्रीराम वाणी AI") as demo:
+    gr.Markdown("# 🎙️ श्रीराम वाणी - हगिंग फेस टर्बो इंजन")
     
     with gr.Row():
         with gr.Column(scale=2):
-            txt = gr.Textbox(label="स्क्रिप्ट यहाँ लिखें", lines=12)
+            txt = gr.Textbox(label="स्क्रिप्ट पेस्ट करें", lines=12)
         with gr.Column(scale=1):
-            ref = gr.Audio(label="सैंपल", type="filepath")
-            with gr.Accordion("⚙️ पुराने स्लाइडर्स", open=True):
+            ref = gr.Audio(label="सैंपल अपलोड करें", type="filepath")
+            with gr.Accordion("⚙️ पुराने स्लाइडर्स (Locked)", open=True):
                 speed_s = gr.Slider(label="Speed", minimum=0.5, maximum=1.5, value=1.0)
                 pitch_s = gr.Slider(label="Deep Match", minimum=0.5, maximum=1.0, value=0.9)
-            with gr.Accordion("🎭 भारीपन और पावर (Bass/Amp)", open=True):
+            with gr.Accordion("🎭 भारी आवाज़ और पावर (Bass/Amp)", open=True):
                 emo_s = gr.Slider(label="ह्यूमन टच (Emotion)", minimum=0.1, maximum=1.0, value=0.8)
                 bass_s = gr.Slider(label="भारी वजन (Deep Voice)", minimum=0, maximum=10, value=2)
                 amp_s = gr.Slider(label="एमप्लीफायर (Power)", minimum=-5, maximum=15, value=0)
             btn = gr.Button("🚀 टर्बो जनरेट करें", variant="primary")
             
-    out = gr.Audio(label="आउटपुट", type="filepath", autoplay=True)
+    out = gr.Audio(label="फाइनल आउटपुट", type="filepath", autoplay=True)
     btn.click(generate_voice, [txt, ref, speed_s, pitch_s, emo_s, bass_s, amp_s], out)
 
 if __name__ == "__main__":
