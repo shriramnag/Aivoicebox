@@ -8,11 +8,11 @@ from TTS.api import TTS
 from huggingface_hub import hf_hub_download
 from pydub import AudioSegment
 
-# ⚡ टर्बो इंजन सेटअप [cite: 2026-01-06]
+# ⚡ टर्बो हाई स्पीड सेटअप [cite: 2026-01-06]
 os.environ["COQUI_TOS_AGREED"] = "1"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# 📥 हगिंग फेस मॉडल
+# 📥 मास्टर मॉडल [cite: 2026-02-16]
 REPO_ID = "Shriramnag/My-Shriram-Voice" 
 MODEL_FILE = "Ramai.pth"
 model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
@@ -26,7 +26,7 @@ def clean_hindi_text(text):
     return text
 
 def split_into_chunks(text):
-    """पुराना वर्किंग चंकिंग लॉजिक [cite: 2026-02-16]"""
+    """आपका वर्किंग चंकिंग लॉजिक [cite: 2026-02-16]"""
     sentences = re.split('([।!?])', text)
     chunks = []
     current_chunk = ""
@@ -40,24 +40,24 @@ def split_into_chunks(text):
     if current_chunk: chunks.append(current_chunk.strip())
     return chunks
 
-def apply_cinematic_mastering(file_path, weight, amp, pitch_val):
-    """सिनेमैटिक गहराई और भारीपन (Error Fixed)"""
+def apply_godly_mastering(file_path, weight, amp, pitch_val):
+    """आवाज़ को 100% सिनेमैटिक और भारी बनाना"""
     sound = AudioSegment.from_wav(file_path)
     
-    # एमप्लीफायर और पिच
+    # 💎 पावर और पिच
     sound = sound + amp 
     new_rate = int(sound.frame_rate * pitch_val)
     sound = sound._spawn(sound.raw_data, overrides={'frame_rate': new_rate}).set_frame_rate(44100)
     
-    # 🎭 सिनेमैटिक इको (aideva.wav जैसा फील)
-    # इसे 'overlay' के जरिए बनाया गया है ताकि Import Error न आए
-    echo = sound - 10  # हल्का इको
-    sound = sound.overlay(echo, position=120) 
+    # 🎭 सिनेमैटिक गूँज (aideva.wav जैसा फील)
+    # हल्का डिले ओवरले
+    echo = sound - 12
+    sound = sound.overlay(echo, position=150) 
     
-    # भारीपन के लिए लो-पास फ़िल्टर
-    sound = sound.low_pass_filter(4000)
+    # बेस बढ़ाना
+    sound = sound.low_pass_filter(3500)
     
-    final_path = "shriram_final_cinematic.wav"
+    final_path = "shriram_god_mode.wav"
     sound.export(final_path, format="wav")
     return final_path
 
@@ -70,16 +70,14 @@ def generate_voice(text, voice_sample, speed, human_feel, weight, amp, pitch_val
     os.makedirs(output_folder)
 
     for i, chunk in enumerate(chunks):
-        progress((i+1)/len(chunks), desc=f"🚀 सिनेमैटिक जनरेशन: {i+1}/{len(chunks)}")
+        progress((i+1)/len(chunks), desc=f"🚀 100% मैचिंग जारी: {i+1}/{len(chunks)}")
         name = os.path.join(output_folder, f"c_{i}.wav")
         
-        # रैंडम इमोशन Jitter
-        dynamic_temp = human_feel + random.uniform(-0.04, 0.04)
-        
+        # 🧠 सिनेमैटिक गहराई के लिए कंडिशनिंग
         tts.tts_to_file(
             text=chunk, speaker_wav=voice_sample, language="hi", file_path=name,
-            speed=speed, repetition_penalty=12.0, temperature=dynamic_temp,
-            top_p=0.85, gpt_cond_len=7
+            speed=speed, repetition_penalty=10.0, 
+            temperature=human_feel, top_p=0.80, gpt_cond_len=9 # गहराई के लिए मैक्सिमम
         )
         chunk_files.append(name)
 
@@ -87,27 +85,27 @@ def generate_voice(text, voice_sample, speed, human_feel, weight, amp, pitch_val
     for f in chunk_files: combined += AudioSegment.from_wav(f)
     combined.export("combined.wav", format="wav")
     
-    return apply_cinematic_mastering("combined.wav", weight, amp, pitch_val)
+    return apply_godly_mastering("combined.wav", weight, amp, pitch_val)
 
-# 🎨 अपडेटेड 'नो-एरर' UI
+# 🎨 रॉयल सिनेमैटिक UI
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange")) as demo:
-    gr.Markdown("# 🚩 श्रीराम वाणी - 100% सिनेमैटिक (Error Fixed)")
+    gr.Markdown("# 🚩 श्रीराम वाणी - 100% सिनेमैटिक मैच")
     
     with gr.Row():
         with gr.Column(scale=2):
-            txt = gr.Textbox(label="अपनी अमृत वाणी यहाँ लिखें", lines=12)
+            txt = gr.Textbox(label="अपनी स्क्रिप्ट यहाँ लिखें", lines=12)
         with gr.Column(scale=1):
-            ref = gr.Audio(label="ओरिजिनल सैंपल (aideva.wav इस्तेमाल करें)", type="filepath")
+            ref = gr.Audio(label="ओरिजिनल सैंपल (aideva.wav अपलोड करें)", type="filepath")
             with gr.Accordion("⚙️ मास्टर सिनेमैटिक कंट्रोल", open=True):
-                speed_s = gr.Slider(label="रफ़्तार (Time)", minimum=0.8, maximum=1.2, value=1.0)
-                pitch_s = gr.Slider(label="पिच (Pitch)", minimum=0.8, maximum=1.1, value=0.96)
-                human_s = gr.Slider(label="इंसानी स्पर्श (Depth)", minimum=0.5, maximum=1.0, value=0.92)
-                weight_s = gr.Slider(label="भारीपन (Bass)", minimum=0, maximum=10, value=6)
-                amp_s = gr.Slider(label="पावर (Gain)", minimum=-5, maximum=10, value=4)
+                speed_s = gr.Slider(label="रफ़्तार", minimum=0.8, maximum=1.2, value=1.0)
+                pitch_s = gr.Slider(label="पिच (गंभीरता)", minimum=0.8, maximum=1.1, value=0.94)
+                human_s = gr.Slider(label="इमोशन टच", minimum=0.5, maximum=1.0, value=0.95)
+                weight_s = gr.Slider(label="भारीपन (Bass)", minimum=0, maximum=10, value=8)
+                amp_s = gr.Slider(label="पावर (Power)", minimum=-5, maximum=10, value=5)
             
-            btn = gr.Button("आवाज़ जनरेट करें 🚀", variant="primary")
+            btn = gr.Button("आवाज़ जनरेट करें 🚀", variant="primary")
             
-    out = gr.Audio(label="फाइनल सिनेमैटिक आउटपुट", type="filepath", autoplay=True)
+    out = gr.Audio(label="100% मैच श्रीराम वाणी", type="filepath", autoplay=True)
     btn.click(generate_voice, [txt, ref, speed_s, human_s, weight_s, amp_s, pitch_s], out)
 
 demo.launch(share=True)
