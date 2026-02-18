@@ -1,0 +1,20 @@
+{
+  "category": "Sanskrit Vedic Meter",
+  "global_timing": {
+    "speed_multiplier": "0.85", 
+    "breath_after_comma": "600ms",
+    "shlok_end_pause": "1800ms"
+  },
+  "rhythm_map": {
+    "कर्मण्येवाधिकारस्ते": {
+      "stretching": "कर-मण्-ये---वा-धि-का-रस-ते",
+      "pitch_lift": "high",
+      "vibration": "deep_chest"
+    },
+    "मा फलेषु": {
+      "stretching": "मा--- फ-ले-षु",
+      "pause_after": "400ms"
+    }
+  }
+}
+
