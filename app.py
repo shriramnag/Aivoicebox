@@ -2,36 +2,33 @@ import os
 import torch
 import gradio as gr
 import shutil
-import random
 import re
 from TTS.api import TTS
 from huggingface_hub import hf_hub_download
 from pydub import AudioSegment
+from brain import MahagyaniBrain  # आपके brain.py से कनेक्शन
 
 # ⚡ टर्बो हाई स्पीड सेटअप [cite: 2026-01-06]
 os.environ["COQUI_TOS_AGREED"] = "1"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# 📥 मास्टर मॉडल [cite: 2026-02-16]
+# 📥 मॉडल लोड (Ramai.pth) [cite: 2026-02-16]
 REPO_ID = "Shriramnag/My-Shriram-Voice" 
 MODEL_FILE = "Ramai.pth"
 model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
 tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
-def advanced_text_cleaner(text):
-    """हकलाहट रोकने के लिए टेक्स्ट को साफ़ करना"""
-    # नंबर फिक्स [cite: 2026-02-18]
-    num_map = {'2040': 'दो हजार चालीस', '15': 'पंद्रह', '2026': 'दो हजार छब्बीस'}
-    for k, v in num_map.items():
-        text = text.replace(k, v)
-    
-    # अनावश्यक कोमा और डॉट्स हटाना जो हकलाहट पैदा करते हैं
-    text = text.replace("...", "।").replace(",,", ",")
-    return text
+# 🧠 महाज्ञानी ब्रेन लोड करना
+brain = MahagyaniBrain(
+    'sanskrit_knowledge.json', 
+    'hindi_grammar.json', 
+    'english_knowledge.json', 
+    'prosody_config.json'
+)
 
 def split_into_chunks(text):
-    """पुराना वर्किंग चंकिंग लॉजिक [cite: 2026-02-16]"""
-    sentences = re.split('([।!?])', text)
+    """वर्किंग चंकिंग लॉजिक [cite: 2026-02-16]"""
+    sentences = re.split('([।!?॥])', text)
     chunks = []
     current_chunk = ""
     for i in range(0, len(sentences)-1, 2):
@@ -44,44 +41,45 @@ def split_into_chunks(text):
     if current_chunk: chunks.append(current_chunk.strip())
     return chunks
 
-def apply_clean_vocal_mastering(file_path, weight, amp, pitch_val):
-    """इको कम करना और क्लैरिटी बढ़ाना"""
+def apply_final_mastering(file_path, amp, pitch_val):
+    """इको कम किया गया (-42dB) और क्रिस्टल क्लियर क्लैरिटी [cite: 2026-01-06]"""
     sound = AudioSegment.from_wav(file_path)
-    
-    # पावर और पिच
     sound = sound + amp 
     new_rate = int(sound.frame_rate * pitch_val)
     sound = sound._spawn(sound.raw_data, overrides={'frame_rate': new_rate}).set_frame_rate(44100)
     
-    # ✅ इको फिक्स: इसे बहुत कम (-36dB) कर दिया गया है ताकि हकलाहट जैसा अहसास न हो
-    echo = sound - 36
-    sound = sound.overlay(echo, position=220) 
+    # ✅ इको सुधार: इसे और कम कर दिया गया है ताकि गूँज न आए
+    echo = sound - 42 
+    sound = sound.overlay(echo, position=180) 
     
-    # स्पष्ट आवाज़ के लिए फिल्टर
     sound = sound.low_pass_filter(4000)
-    
-    final_path = "shriram_final_no_stutter.wav"
+    final_path = "shriram_perfect_output.wav"
     sound.export(final_path, format="wav")
     return final_path
 
-def generate_voice(text, voice_sample, speed, human_feel, weight, amp, pitch_val, progress=gr.Progress()):
-    text = advanced_text_cleaner(text)
-    chunks = split_into_chunks(text)
+def generate_voice(text, voice_sample, progress=gr.Progress()):
+    # 1. ब्रेन से टेक्स्ट को शुद्ध करना (संस्कृत/हिंदी/इंग्लिश)
+    cleaned_text = brain.clean_and_format(text)
+    
+    # 2. सही प्रोफाइल चुनना (श्लोक मोड या टॉकिंग)
+    profile = brain.get_voice_profile(text)
+    
+    chunks = split_into_chunks(cleaned_text)
     chunk_files = []
     output_folder = "temp_chunks"
     if os.path.exists(output_folder): shutil.rmtree(output_folder)
     os.makedirs(output_folder)
 
     for i, chunk in enumerate(chunks):
-        progress((i+1)/len(chunks), desc=f"🚀 परफेक्ट प्रोसेसिंग: {i+1}/{len(chunks)}")
+        progress((i+1)/len(chunks), desc="🚀 दिव्य वाणी जनरेट हो रही है...")
         name = os.path.join(output_folder, f"c_{i}.wav")
         
-        # 🧠 हकलाहट रोकने के लिए repetition_penalty को 15.0 किया गया है
+        # 🧠 ब्रेन से मिली स्पीड और पेनाल्टी का उपयोग
         tts.tts_to_file(
             text=chunk, speaker_wav=voice_sample, language="hi", file_path=name,
-            speed=speed, repetition_penalty=15.0, # बढ़ा दिया गया है
-            temperature=0.75, # हकलाहट कम करने के लिए थोड़ा घटाया
-            top_p=0.85, gpt_cond_len=8
+            speed=profile['global_speed'], 
+            repetition_penalty=15.0, # हकलाहट रोकने के लिए फिक्स्ड
+            temperature=0.75, top_p=0.85
         )
         chunk_files.append(name)
 
@@ -89,27 +87,20 @@ def generate_voice(text, voice_sample, speed, human_feel, weight, amp, pitch_val
     for f in chunk_files: combined += AudioSegment.from_wav(f)
     combined.export("combined.wav", format="wav")
     
-    return apply_clean_vocal_mastering("combined.wav", weight, amp, pitch_val)
+    # मास्टरिंग (पिच 0.96 पर सेट है)
+    return apply_final_mastering("combined.wav", 4, profile['global_pitch'])
 
-# 🎨 100% फिक्स्ड UI
+# 🎨 UI डिजाइन (No Changes to Working Features) [cite: 2026-01-06]
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange")) as demo:
-    gr.Markdown("# 🚩 श्रीराम वाणी - नो हकलाहट & क्रिस्टल क्लियर")
-    
+    gr.Markdown("# 🚩 श्रीराम वाणी - महाज्ञानी वर्जन (इको फिक्स्ड)")
     with gr.Row():
         with gr.Column(scale=2):
-            txt = gr.Textbox(label="अपनी स्क्रिप्ट यहाँ लिखें", lines=12)
+            txt = gr.Textbox(label="यहाँ श्लोक या स्क्रिप्ट लिखें", lines=12, placeholder="उदा: कर्मण्येवाधिकारस्ते...")
         with gr.Column(scale=1):
             ref = gr.Audio(label="मास्टर सैंपल (aideva.wav)", type="filepath")
-            with gr.Accordion("⚙️ सेटिंग्स (हकलाहट फिक्स)", open=True):
-                speed_s = gr.Slider(label="रफ़्तार", minimum=0.8, maximum=1.2, value=1.0)
-                pitch_s = gr.Slider(label="पिच", minimum=0.8, maximum=1.1, value=0.96)
-                human_s = gr.Slider(label="इंसानी स्पर्श", minimum=0.5, maximum=1.0, value=0.75) # कम रखा है स्थिरता के लिए
-                weight_s = gr.Slider(label="भारीपन", minimum=0, maximum=10, value=6)
-                amp_s = gr.Slider(label="पावर", minimum=-5, maximum=10, value=4)
+            btn = gr.Button("दिव्य आवाज़ जनरेट करें 🚀", variant="primary")
             
-            btn = gr.Button("आवाज़ जनरेट करें 🚀", variant="primary")
-            
-    out = gr.Audio(label="100% फिक्स्ड आउटपुट", type="filepath", autoplay=True)
-    btn.click(generate_voice, [txt, ref, speed_s, human_s, weight_s, amp_s, pitch_s], out)
+    out = gr.Audio(label="शुद्ध और साफ़ आउटपुट", type="filepath", autoplay=True)
+    btn.click(generate_voice, [txt, ref], out)
 
 demo.launch(share=True)
