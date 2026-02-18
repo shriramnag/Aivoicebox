@@ -1,19 +1,26 @@
 {
-  "voice_style": {
+  "voice_profiles": {
     "shlok_mode": {
-      "speed": 0.82,
-      "pitch": "deep",
-      "pause_between_pads": "800ms",
-      "end_of_line_stretching": "1.5x"
+      "global_speed": 0.82,
+      "global_pitch": 0.95,
+      "reverb_strength": "medium_high",
+      "bass_boost": "7dB"
     },
-    "storytelling_mode": {
-      "speed": 1.0,
-      "pitch": "natural",
-      "pause_between_sentences": "1.0s"
+    "story_mode": {
+      "global_speed": 1.0,
+      "global_pitch": 1.0,
+      "reverb_strength": "low",
+      "bass_boost": "4dB"
+    },
+    "talking_mode": {
+      "global_speed": 1.05,
+      "global_pitch": 1.0,
+      "reverb_strength": "none",
+      "bass_boost": "0dB"
     }
   },
-  "emphasis_rules": {
-    "sanskrit_vowels": "long",
-    "hindi_consonants": "sharp"
+  "automatic_detection": {
+    "detect_sanskrit_markers": true,
+    "detect_english_mixing": true
   }
 }
