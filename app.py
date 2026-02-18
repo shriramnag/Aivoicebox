@@ -27,36 +27,36 @@ brain = MahagyaniBrain(
 )
 
 def apply_final_mastering(file_path, amp, pitch_val):
-    """मास्टरिंग एरर फिक्स (-42dB इको के साथ) [cite: 2026-01-06]"""
+    """मास्टरिंग सेफ्टी चेक (इको -42dB) [cite: 2026-01-06]"""
     try:
         sound = AudioSegment.from_wav(file_path)
-        if len(sound) < 100: return file_path # बहुत छोटे ऑडियो पर फिल्टर न लगाएं
+        if len(sound) < 200: return file_path
         
         sound = sound + amp 
         new_rate = int(sound.frame_rate * pitch_val)
         sound = sound._spawn(sound.raw_data, overrides={'frame_rate': new_rate}).set_frame_rate(44100)
         
-        # इको और क्लैरिटी
+        # संतुलित इको
         echo = sound - 42 
         sound = sound.overlay(echo, position=180) 
         
-        # IndexError रोकने के लिए सेफ्टी चेक
+        # एरर रोकने के लिए लेंथ चेक
         if len(sound) > 500:
             sound = sound.low_pass_filter(4000)
             
-        final_path = "shriram_emotional_output.wav"
+        final_path = "shriram_final_fixed.wav"
         sound.export(final_path, format="wav")
         return final_path
-    except Exception as e:
+    except:
         return file_path
 
 def generate_voice(text, voice_sample, speed_s, pitch_s, weight_s, amp_s, progress=gr.Progress()):
-    # 🧠 टेक्स्ट शुद्धिकरण
+    # 🧠 टेक्स्ट क्लीनिंग
     cleaned_text = brain.clean_and_format(text)
     profile = brain.get_voice_profile(text)
     final_speed = profile['global_speed'] if "॥" in text else speed_s
     
-    # ✂️ चंकिंग (LOCKED) [cite: 2026-02-18]
+    # ✂️ चंकिंग (LOCKED)
     sentences = re.split('([।!?॥])', cleaned_text)
     chunks = []
     for i in range(0, len(sentences)-1, 2):
@@ -68,18 +68,20 @@ def generate_voice(text, voice_sample, speed_s, pitch_s, weight_s, amp_s, progre
     os.makedirs(output_folder)
 
     for i, chunk in enumerate(chunks):
-        progress((i+1)/len(chunks), desc="🌬️ सांसों और भावों को जोड़ रहा हूँ...")
+        progress((i+1)/len(chunks), desc="🌬️ दिव्य भाव और सांसें जोड़ रहा हूँ...")
         name = os.path.join(output_folder, f"c_{i}.wav")
         
-        # 🎭 इमोशनल ब्रीदिंग के लिए पैरामीटर्स (LOCKED)
+        # ✅ एरर फिक्स: गलत पैरामीटर्स हटा दिए गए हैं
         tts.tts_to_file(
-            text=chunk, speaker_wav=voice_sample, language="hi", file_path=name,
+            text=chunk, 
+            speaker_wav=voice_sample, 
+            language="hi", 
+            file_path=name,
             speed=final_speed, 
             repetition_penalty=1.5, 
-            temperature=0.75, # भावों के लिए संतुलित
-            top_p=0.85,
-            gpt_cond_len=12, # 🌬️ सांस लेने और पॉज़ के लिए बढ़ाया गया
-            enable_text_preprocessing=True
+            temperature=0.75, 
+            top_p=0.85
+            # 'enable_text_preprocessing' को यहाँ से हटा दिया गया है एरर रोकने के लिए
         )
         chunk_files.append(name)
 
@@ -89,23 +91,23 @@ def generate_voice(text, voice_sample, speed_s, pitch_s, weight_s, amp_s, progre
     
     return apply_final_mastering("temp.wav", amp_s, pitch_s)
 
-# 🎨 UI (LOCKED STYLE)
+# 🎨 UI डिज़ाइन (LOCKED)
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange")) as demo:
-    gr.Markdown("# 🚩 श्रीराम वाणी - इमोशनल महाज्ञानी (एरर फिक्स्ड)")
+    gr.Markdown("# 🚩 श्रीराम वाणी - महाज्ञानी (ValueError फिक्स्ड)")
     with gr.Row():
         with gr.Column(scale=2):
-            txt = gr.Textbox(label="यहाँ श्लोक या भावपूर्ण स्क्रिप्ट लिखें", lines=12)
+            txt = gr.Textbox(label="यहाँ श्लोक या स्क्रिप्ट लिखें", lines=12)
         with gr.Column(scale=1):
-            ref = gr.Audio(label="मास्टर सैंपल", type="filepath")
+            ref = gr.Audio(label="मास्टर सैंपल (aideva.wav)", type="filepath")
             with gr.Accordion("⚙️ सेटिंग्स", open=True):
                 speed_s = gr.Slider(label="रफ़्तार", minimum=0.8, maximum=1.3, value=1.0)
                 pitch_s = gr.Slider(label="पिच", minimum=0.8, maximum=1.1, value=0.96)
                 weight_s = gr.Slider(label="भारीपन", minimum=0, maximum=10, value=6)
-                amp_s = gr.Slider(label="शक्ति", minimum=-5, maximum=10, value=4)
+                amp_s = gr.Slider(label="पावर", minimum=-5, maximum=10, value=4)
             
             btn = gr.Button("दिव्य आवाज़ जनरेट करें 🚀", variant="primary")
             
-    out = gr.Audio(label="भावपूर्ण आउटपुट", type="filepath", autoplay=True)
+    out = gr.Audio(label="शुद्ध आउटपुट", type="filepath", autoplay=True)
     btn.click(generate_voice, [txt, ref, speed_s, pitch_s, weight_s, amp_s], out)
 
 demo.launch(share=True)
