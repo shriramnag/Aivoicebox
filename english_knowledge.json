@@ -1,19 +1,34 @@
 {
-  "category": "English Fluidity",
-  "mixing_rules": {
-    "transition_gap": "200ms",
-    "english_speed_lock": "1.0",
-    "syllable_stress": "balanced"
+  "category": "English Integration for Shriram AI",
+  "integration_settings": {
+    "accent_type": "Indian Professional",
+    "word_gap_ms": 150,
+    "speed_lock": 1.0
   },
-  "timing_overrides": {
-    "Technology": {
-      "breakdown": "टेक-नो-लो-जी",
-      "total_duration": "1.1s"
+  "vocabulary_master": {
+    "Talking": {
+      "phonetic": "टॉ-किंग",
+      "emphasis": "first_part",
+      "duration": "800ms"
     },
-    "Future": {
-      "breakdown": "फ्यू-चर",
-      "total_duration": "0.9s"
+    "System": {
+      "phonetic": "सिस्-टम",
+      "emphasis": "first_part",
+      "duration": "700ms"
+    },
+    "Technology": {
+      "phonetic": "टेक-नो-लो-जी",
+      "emphasis": "middle",
+      "duration": "1200ms"
+    },
+    "Advanced": {
+      "phonetic": "एड-वान्-स्ड",
+      "emphasis": "middle",
+      "duration": "950ms"
     }
+  },
+  "grammar_fix": {
+    "is_am_are_flow": "smooth",
+    "ing_words_stretching": "low"
   }
 }
-
