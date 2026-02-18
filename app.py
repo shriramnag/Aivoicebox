@@ -8,11 +8,11 @@ from TTS.api import TTS
 from huggingface_hub import hf_hub_download
 from pydub import AudioSegment
 
-# ⚡ टर्बो हाई स्पीड सेटअप [cite: 2026-01-06]
+# ⚡ टर्बो इंजन सेटअप [cite: 2026-01-06]
 os.environ["COQUI_TOS_AGREED"] = "1"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# 📥 आपका 'Ramai.pth' मॉडल [cite: 2026-02-16]
+# 📥 मास्टर मॉडल [cite: 2026-02-16]
 REPO_ID = "Shriramnag/My-Shriram-Voice" 
 MODEL_FILE = "Ramai.pth"
 model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
@@ -26,7 +26,7 @@ def clean_hindi_text(text):
     return text
 
 def split_into_chunks(text):
-    """पुराना वर्किंग चंकिंग लॉजिक [cite: 2026-02-16]"""
+    """वर्किंग चंकिंग लॉजिक [cite: 2026-02-16]"""
     sentences = re.split('([।!?])', text)
     chunks = []
     current_chunk = ""
@@ -40,28 +40,24 @@ def split_into_chunks(text):
     if current_chunk: chunks.append(current_chunk.strip())
     return chunks
 
-def apply_ultimate_100_match(file_path, weight, amp, pitch_val):
-    """आवाज़ को aideva.wav से 100% मिलाने वाला मास्टरिंग लॉजिक"""
+def apply_precision_mastering(file_path, weight, amp, pitch_val):
+    """इको को और कम करके 100% साफ़ और दमदार बनाना"""
     sound = AudioSegment.from_wav(file_path)
     
-    # 💎 पावर और पिच बैलेंस
+    # 💎 पावर और पिच
     sound = sound + amp 
     new_rate = int(sound.frame_rate * pitch_val)
     sound = sound._spawn(sound.raw_data, overrides={'frame_rate': new_rate}).set_frame_rate(44100)
     
-    # ✅ 100% मैच फिक्स: डबल लेयर मीडियम इको (सिनेमैटिक गहराई के लिए)
-    # पहली लेयर: बहुत हल्की और तेज़ (आवाज़ को भरने के लिए)
-    echo_1 = sound - 28
-    sound = sound.overlay(echo_1, position=160)
+    # ✅ इको फिक्स: केवल एक सिंगल लेयर और बहुत कम वॉल्यूम (-32dB)
+    # इससे आवाज़ गूँजेगी नहीं, बल्कि 'घनी' (Dense) लगेगी
+    echo_single = sound - 32
+    sound = sound.overlay(echo_single, position=140) 
     
-    # दूसरी लेयर: थोड़ी गहरी (सिनेमैटिक अहसास के लिए)
-    echo_2 = sound - 32
-    sound = sound.overlay(echo_2, position=280)
+    # 🔊 बेस और क्लैरिटी का तालमेल
+    sound = sound.low_pass_filter(3900)
     
-    # 🔊 बेस बूस्टर: aideva.wav जैसी गंभीरता लाने के लिए
-    sound = sound.low_pass_filter(3800)
-    
-    final_path = "shriram_final_100_percent.wav"
+    final_path = "shriram_final_perfect.wav"
     sound.export(final_path, format="wav")
     return final_path
 
@@ -74,16 +70,16 @@ def generate_voice(text, voice_sample, speed, human_feel, weight, amp, pitch_val
     os.makedirs(output_folder)
 
     for i, chunk in enumerate(chunks):
-        progress((i+1)/len(chunks), desc=f"🚀 100% मैचिंग जारी: {i+1}/{len(chunks)}")
+        progress((i+1)/len(chunks), desc=f"🚀 साफ़ क्लोनिंग जारी: {i+1}/{len(chunks)}")
         name = os.path.join(output_folder, f"c_{i}.wav")
         
-        # 🎭 असली इंसानी अहसास (Jitter)
-        dynamic_temp = human_feel + random.uniform(-0.04, 0.04)
+        # रैंडम इमोशन Jitter
+        dynamic_temp = human_feel + random.uniform(-0.03, 0.03)
         
         tts.tts_to_file(
             text=chunk, speaker_wav=voice_sample, language="hi", file_path=name,
-            speed=speed, repetition_penalty=11.0, temperature=dynamic_temp,
-            top_p=0.82, gpt_cond_len=9 # कंडिशनिंग बढ़ाई ताकि मास्टर सैंपल की आत्मा पकड़े
+            speed=speed, repetition_penalty=12.0, temperature=dynamic_temp,
+            top_p=0.82, gpt_cond_len=8
         )
         chunk_files.append(name)
 
@@ -91,27 +87,27 @@ def generate_voice(text, voice_sample, speed, human_feel, weight, amp, pitch_val
     for f in chunk_files: combined += AudioSegment.from_wav(f)
     combined.export("combined.wav", format="wav")
     
-    return apply_ultimate_100_match("combined.wav", weight, amp, pitch_val)
+    return apply_precision_mastering("combined.wav", weight, amp, pitch_val)
 
-# 🎨 100% मैच 'रॉयल' UI
+# 🎨 अपडेटेड UI
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange")) as demo:
-    gr.Markdown("# 🚩 श्रीराम वाणी - 100% मैच मास्टर (Final)")
+    gr.Markdown("# 🚩 श्रीराम वाणी - 100% साफ़ (Final Mix)")
     
     with gr.Row():
         with gr.Column(scale=2):
             txt = gr.Textbox(label="अपनी अमृत वाणी यहाँ लिखें", lines=12)
         with gr.Column(scale=1):
-            ref = gr.Audio(label="मास्टर सैंपल (aideva.wav)", type="filepath")
-            with gr.Accordion("⚙️ मास्टर कंट्रोल (100% परफेक्ट)", open=True):
+            ref = gr.Audio(label="ओरिजिनल मास्टर सैंपल (aideva.wav)", type="filepath")
+            with gr.Accordion("⚙️ मास्टर कंट्रोल (नो इको फिक्स)", open=True):
                 speed_s = gr.Slider(label="रफ़्तार", minimum=0.8, maximum=1.2, value=1.0)
-                pitch_s = gr.Slider(label="पिच (गंभीरता)", minimum=0.8, maximum=1.1, value=0.95)
-                human_s = gr.Slider(label="इमोशन टच", minimum=0.5, maximum=1.0, value=0.92)
-                weight_s = gr.Slider(label="भारीपन (Bass)", minimum=0, maximum=10, value=8)
-                amp_s = gr.Slider(label="पावर (Gain)", minimum=-5, maximum=10, value=5)
+                pitch_s = gr.Slider(label="पिच", minimum=0.8, maximum=1.1, value=0.96)
+                human_s = gr.Slider(label="इमोशन टच", minimum=0.5, maximum=1.0, value=0.90)
+                weight_s = gr.Slider(label="भारीपन (Bass)", minimum=0, maximum=10, value=7)
+                amp_s = gr.Slider(label="पावर (Gain)", minimum=-5, maximum=10, value=4.5)
             
             btn = gr.Button("आवाज़ जनरेट करें 🚀", variant="primary")
             
-    out = gr.Audio(label="100% मैच श्रीराम वाणी", type="filepath", autoplay=True)
+    out = gr.Audio(label="फाइनल 100% मैच आउटपुट", type="filepath", autoplay=True)
     btn.click(generate_voice, [txt, ref, speed_s, human_s, weight_s, amp_s, pitch_s], out)
 
 demo.launch(share=True)
