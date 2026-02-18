@@ -1,0 +1,19 @@
+{
+  "voice_style": {
+    "shlok_mode": {
+      "speed": 0.82,
+      "pitch": "deep",
+      "pause_between_pads": "800ms",
+      "end_of_line_stretching": "1.5x"
+    },
+    "storytelling_mode": {
+      "speed": 1.0,
+      "pitch": "natural",
+      "pause_between_sentences": "1.0s"
+    }
+  },
+  "emphasis_rules": {
+    "sanskrit_vowels": "long",
+    "hindi_consonants": "sharp"
+  }
+}
