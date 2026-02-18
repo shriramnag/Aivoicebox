@@ -1,0 +1,19 @@
+{
+  "category": "English Fluidity",
+  "mixing_rules": {
+    "transition_gap": "200ms",
+    "english_speed_lock": "1.0",
+    "syllable_stress": "balanced"
+  },
+  "timing_overrides": {
+    "Technology": {
+      "breakdown": "टेक-नो-लो-जी",
+      "total_duration": "1.1s"
+    },
+    "Future": {
+      "breakdown": "फ्यू-चर",
+      "total_duration": "0.9s"
+    }
+  }
+}
+
