@@ -1,18 +1,20 @@
 {
-  "category": "Hindi Prosody",
-  "flow_rules": {
-    "full_stop_timing": "1.2s",
-    "sentence_start_speed": "normal",
-    "sentence_end_fade": "slow"
+  "category": "Hindi Linguistic Intelligence",
+  "flow_settings": {
+    "natural_breathing": true,
+    "honorific_respect": "high",
+    "sentence_spacing": "800ms"
   },
-  "emotion_timing": {
-    "गंभीर (Serious)": {
-      "speed": "0.90",
-      "emphasis_on": "key_nouns"
-    },
-    "आध्यात्मिक (Divine)": {
-      "speed": "0.85",
-      "echo_blend": "medium"
-    }
+  "number_to_word_map": {
+    "15": "पंद्रह",
+    "2026": "दो हजार छब्बीस",
+    "2040": "दो हजार चालीस",
+    "default": "convert_to_hindi_text"
+  },
+  "special_word_flow": {
+    "हृदय": "हृ-दय",
+    "आध्यात्मिक": "आध-यात्-मिक",
+    "ज्ञान": "ग्या-न",
+    "ब्रह्मांड": "ब्रह्-माण्ड"
   }
 }
