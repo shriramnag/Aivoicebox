@@ -1,20 +1,39 @@
 {
   "category": "Sanskrit Vedic Meter",
-  "global_timing": {
-    "speed_multiplier": "0.85", 
+  "project": "Mahagyani_Shriram_AI",
+  "timing_rules": {
+    "shlok_speed": 0.82,
     "breath_after_comma": "600ms",
-    "shlok_end_pause": "1800ms"
+    "shlok_line_end_pause": "1500ms",
+    "mantra_vibration": "deep_and_heavy"
   },
-  "rhythm_map": {
-    "कर्मण्येवाधिकारस्ते": {
-      "stretching": "कर-मण्-ये---वा-धि-का-रस-ते",
-      "pitch_lift": "high",
-      "vibration": "deep_chest"
+  "pronunciation_logic": {
+    "karman_rule": {
+      "word": "कर्मण्येवाधिकारस्ते",
+      "phonetic": "कर-मण्-ये---वा-धि-का-रस-ते",
+      "stretching": [0.2, 0.4, 0.6, 0.2, 0.2, 0.2],
+      "emphasis": "middle"
     },
-    "मा फलेषु": {
-      "stretching": "मा--- फ-ले-षु",
-      "pause_after": "400ms"
+    "dharma_rule": {
+      "word": "धर्मक्षेत्रे",
+      "phonetic": "धर्-म-क्षे-त्रे",
+      "stretching": [0.3, 0.2, 0.4, 0.3],
+      "emphasis": "first_syllable"
+    },
+    "kuru_rule": {
+      "word": "कुरुक्षेत्रे",
+      "phonetic": "कु-रु-क्षे-त्रे",
+      "stretching": [0.2, 0.2, 0.4, 0.3],
+      "emphasis": "last_syllable"
+    },
+    "phaleshu_rule": {
+      "word": "मा फलेषु कदाचन",
+      "phonetic": "मा--- फ-ले-षु क-दा-चन",
+      "pause_after_ma": "300ms"
     }
+  },
+  "prosody_markers": {
+    "।": "pause_1000ms",
+    "॥": "pause_2000ms_with_reverb"
   }
 }
-
