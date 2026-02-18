@@ -1,0 +1,18 @@
+{
+  "category": "Hindi Prosody",
+  "flow_rules": {
+    "full_stop_timing": "1.2s",
+    "sentence_start_speed": "normal",
+    "sentence_end_fade": "slow"
+  },
+  "emotion_timing": {
+    "गंभीर (Serious)": {
+      "speed": "0.90",
+      "emphasis_on": "key_nouns"
+    },
+    "आध्यात्मिक (Divine)": {
+      "speed": "0.85",
+      "echo_blend": "medium"
+    }
+  }
+}
