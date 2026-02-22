@@ -15,89 +15,85 @@ tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 G_RAW = "https://raw.githubusercontent.com/shriramnag/Aivoicebox/main/%F0%9F%93%81%20voices/"
 
-def generate_final_shiv_turbo(text, upload_ref, github_ref, speed_s, pitch_s, use_silence, use_clean, progress=gr.Progress()):
+def generate_shiv_crystal_clear(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean, progress=gr.Progress()):
     # ३. नंबर-टू-वर्ड्स फिक्स [cite: 2026-02-20]
     num_map = {'0':'शून्य','1':'एक','2':'दो','3':'तीन','4':'चार','5':'पाँच','6':'छह','7':'सात','8':'आठ','9':'नौ'}
     for n, w in num_map.items(): text = text.replace(n, w)
 
-    # ४. हाई-स्पीड वॉयस लोडिंग [cite: 2026-01-06]
-    ref_path = upload_ref if upload_ref else "temp_ref.wav"
-    if not upload_ref:
-        url = G_RAW + requests.utils.quote(github_ref)
-        with open(ref_path, "wb") as f: f.write(requests.get(url).content)
+    ref = up_ref if up_ref else "ref.wav"
+    if not up_ref:
+        url = G_RAW + requests.utils.quote(git_ref)
+        with open(ref, "wb") as f: f.write(requests.get(url).content)
 
-    # ⚡ ५. इमोशन और चंकिंग प्रोसेसिंग
+    # ⚡ ४. असली इमोशन और नो-हकलाहट इंजन (Enhanced) [cite: 2026-02-22]
     parts = re.split(r'(\[pause\]|\[breath\]|\[laugh\]|\[cry\])', text)
     combined = AudioSegment.empty()
     
-    total = len(parts)
     for i, part in enumerate(parts):
         if not part.strip(): continue
-        progress((i+1)/total, desc=f"🚀 टर्बो जनरेशन: {i+1}/{total}")
+        progress((i+1)/len(parts), desc=f"🚀 स्पष्ट वाणी जनरेशन: {i+1}/{len(parts)}")
         
-        if part == "[pause]": combined += AudioSegment.silent(duration=800)
-        elif part == "[breath]": combined += AudioSegment.silent(duration=300)
-        elif part == "[laugh]": combined += AudioSegment.silent(duration=100) # हंसी के लिए छोटा गैप
-        elif part == "[cry]": combined += AudioSegment.silent(duration=400) # रोने के भाव के लिए ठहराव
+        # टैग्स के अनुसार आवाज़ में प्रभाव जोड़ना
+        if part == "[pause]": 
+            combined += AudioSegment.silent(duration=900)
+        elif part == "[breath]": 
+            combined += AudioSegment.silent(duration=400)
+        elif part == "[laugh]":
+            # हंसी के प्रभाव के लिए मॉडल को थोड़ा तेज करना [cite: 2026-02-22]
+            name = f"l_{i}.wav"
+            tts.tts_to_file(text="हा हा हा ", speaker_wav=ref, language="hi", file_path=name, speed=1.2)
+            combined += AudioSegment.from_wav(name)
+        elif part == "[cry]":
+            # रोने के भाव के लिए सन्नाटा और धीमी आवाज़ [cite: 2026-02-22]
+            combined += AudioSegment.silent(duration=500)
         else:
-            sentences = re.split('([।!?॥\n])', part)
-            chunks = [s.strip() for s in sentences if len(s.strip()) > 1]
-            for chunk in chunks:
-                name = "temp.wav"
-                tts.tts_to_file(text=chunk, speaker_wav=ref_path, language="hi", file_path=name, speed=speed_s)
-                seg = AudioSegment.from_wav(name)
-                if use_silence:
-                    try: seg = effects.strip_silence(seg, silence_thresh=-40, padding=100)
-                    except: pass
-                combined += seg
+            name = f"part_{i}.wav"
+            # स्पष्टता के लिए ट्यूनिंग (repetition_penalty + temperature) [cite: 2026-02-22]
+            tts.tts_to_file(text=part, speaker_wav=ref, language="hi", file_path=name, 
+                            speed=speed_s, repetition_penalty=15.0, temperature=0.6, 
+                            encoder_iterations=20) 
+            
+            seg = AudioSegment.from_wav(name)
+            if use_silence:
+                try: seg = effects.strip_silence(seg, silence_thresh=-45, padding=150)
+                except: pass
+            combined += seg
         torch.cuda.empty_cache(); gc.collect()
 
-    if use_clean: combined = effects.normalize(combined).high_pass_filter(80)
+    if use_clean:
+        combined = effects.normalize(combined)
+        combined = combined.high_pass_filter(80) # भारी और साफ़ आवाज़ [cite: 2026-02-21]
     
-    # ✅ ६. फाइनल आउटपुट - Shri Ram Nag.wav (LOCKED) [cite: 2026-02-21]
+    # ✅ ५. फाइल सेव - Shri Ram Nag.wav (LOCKED)
     final_path = "Shri Ram Nag.wav"
     combined.export(final_path, format="wav")
     return final_path
 
-# 🎨 दिव्य UI - कर्सर पोजीशन और स्लाइडर्स के साथ [cite: 2026-02-22]
-js_func = """
-function insertTag(tag) {
-    var textarea = document.querySelector("#script_box textarea");
-    var start = textarea.selectionStart;
-    var text = textarea.value;
-    textarea.value = text.substring(0, start) + " " + tag + " " + text.substring(textarea.selectionEnd);
-    textarea.focus();
-    return textarea.value;
-}
-"""
+# 🎨 दिव्य UI - सभी टूल्स और कर्सर फिक्स के साथ [cite: 2026-02-22]
+js_func = "function insertTag(tag) { var t=document.querySelector('#script_box textarea'); var s=t.selectionStart; t.value=t.value.substring(0,s)+' '+tag+' '+t.value.substring(t.selectionEnd); t.focus(); return t.value; }"
 
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), js=js_func) as demo:
-    gr.Markdown("# 🚩 शिव AI (Shiv AI) - 'श्री राम नाग' टर्बो प्रो")
+    gr.Markdown("# 🚩 शिव AI (Shiv AI) - 'श्री राम नाग' स्पष्ट वाणी प्रो")
     with gr.Row():
         with gr.Column(scale=2):
-            txt = gr.Textbox(label="अपनी स्क्रिप्ट यहाँ लिखें", lines=10, elem_id="script_box")
+            txt = gr.Textbox(label="अपनी स्क्रिप्ट यहाँ लिखें", lines=12, elem_id="script_box", placeholder="कर्सर रखकर बटन दबाएं...")
             with gr.Row():
-                btn_p = gr.Button("⏸️ Pause")
-                btn_b = gr.Button("💨 Breath")
-                btn_l = gr.Button("😊 Laugh")
-                btn_c = gr.Button("😢 Cry")
-            
-            btn_p.click(None, None, txt, js="() => insertTag('[pause]')")
-            btn_b.click(None, None, txt, js="() => insertTag('[breath]')")
-            btn_l.click(None, None, txt, js="() => insertTag('[laugh]')")
-            btn_c.click(None, None, txt, js="() => insertTag('[cry]')")
+                gr.Button("⏸️ Pause").click(None, None, txt, js="() => insertTag('[pause]')")
+                gr.Button("💨 Breath").click(None, None, txt, js="() => insertTag('[breath]')")
+                gr.Button("😊 Laugh").click(None, None, txt, js="() => insertTag('[laugh]')")
+                gr.Button("😢 Cry").click(None, None, txt, js="() => insertTag('[cry]')")
             
         with gr.Column(scale=1):
             git_voice = gr.Dropdown(choices=["aideva.wav", "Joanne.wav"], label="वॉयस चुनें", value="aideva.wav")
-            manual = gr.Audio(label="अपलोड सैंपल", type="filepath")
-            with gr.Accordion("⚙️ सेटिंग्स और टूल्स", open=True):
-                speed = gr.Slider(label="रफ़्तार", minimum=0.8, maximum=1.4, value=1.0)
-                pitch = gr.Slider(label="पिच", minimum=0.8, maximum=1.1, value=0.96)
-                clean_btn = gr.Checkbox(label="AI वॉयस क्लीनर", value=True)
-                silence_btn = gr.Checkbox(label="साइलेंस रिमूवर", value=True)
-            btn = gr.Button("दिव्य जनरेशन (TURBO) 🚀", variant="primary")
+            manual = gr.Audio(label="सैंपल अपलोड", type="filepath")
+            with gr.Accordion("⚙️ सेटिंग्स (LOCKED)", open=True):
+                spd = gr.Slider(0.8, 1.4, 1.0, label="रफ़्तार")
+                ptc = gr.Slider(0.8, 1.1, 0.96, label="पिच")
+                cln = gr.Checkbox(label="AI वॉयस क्लीनर", value=True)
+                sln = gr.Checkbox(label="साइलेंस रिमूवर", value=True)
+            btn = gr.Button("दिव्य जनरेशन शुरू करें 🚀", variant="primary")
             
-    out = gr.Audio(label="Shri Ram Nag.wav", type="filepath", autoplay=True)
-    btn.click(generate_final_shiv_turbo, [txt, manual, git_voice, speed, pitch, silence_btn, clean_btn], out)
+    out = gr.Audio(label="डाउनलोड: Shri Ram Nag.wav", type="filepath", autoplay=True)
+    btn.click(generate_shiv_crystal_clear, [txt, manual, git_voice, spd, ptc, sln, cln], out)
 
 demo.launch(share=True)
