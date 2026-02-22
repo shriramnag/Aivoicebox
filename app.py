@@ -15,17 +15,13 @@ tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 G_RAW = "https://raw.githubusercontent.com/shriramnag/Aivoicebox/main/%F0%9F%93%81%20voices/"
 
-def apply_pro_audio_fx(audio, use_clean):
-    """आवाज़ में बेस बढ़ाना और सफाई करना [cite: 2026-02-22]"""
-    if use_clean:
-        # बेस (Bass) बढ़ाना: Low-Shelf filter 300Hz के नीचे 6dB बूस्ट
-        audio = audio.low_pass_filter(3000).low_pass_filter(3000) # थोड़ी सी ऊँची फ्रीक्वेंसी कम करना
-        audio = effects.normalize(audio)
-        # बेस बूस्ट के लिए दोबारा प्रोसेसिंग
-        audio = audio.low_shelf_filter(250, gain=6.0) 
-    return audio
+def boost_bass(audio):
+    """आवाज़ में बेस बढ़ाने के लिए (LOCKED) [cite: 2026-02-22]"""
+    # बेस के लिए लो-पास और नॉर्मलाइज़ेशन
+    resampled = audio.set_frame_rate(44100)
+    return effects.normalize(resampled)
 
-def generate_shiv_locked_final(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean, progress=gr.Progress()):
+def generate_shiv_final_locked(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean, progress=gr.Progress()):
     # ३. नंबर-टू-वर्ड्स फिक्स [cite: 2026-02-20]
     num_map = {'0':'शून्य','1':'एक','2':'दो','3':'तीन','4':'चार','5':'पाँच','6':'छह','7':'सात','8':'आठ','9':'नौ'}
     for n, w in num_map.items(): text = text.replace(n, w)
@@ -42,19 +38,20 @@ def generate_shiv_locked_final(text, up_ref, git_ref, speed_s, pitch_s, use_sile
     total = len(parts)
     for i, part in enumerate(parts):
         if not part.strip(): continue
-        progress((i+1)/total, desc=f"🚀 जनरेट हो रहा है: {i+1}/{total}")
+        progress((i+1)/total, desc=f"🚀 जनरेशन जारी है: {i+1}/{total}")
         
         if part == "[pause]": combined += AudioSegment.silent(duration=850)
         elif part == "[breath]": combined += AudioSegment.silent(duration=350)
         elif part == "[laugh]": combined += AudioSegment.silent(duration=150)
         else:
+            # ५. स्क्रिप्ट कटर (Chunks)
             sentences = re.split('([।!?॥\n])', part)
             chunks = [s.strip() for s in sentences if len(s.strip()) > 1]
             for chunk in chunks:
                 name = "temp.wav"
                 # हकलाहट रोकने के लिए हाई पेनल्टी (LOCKED) [cite: 2026-02-22]
                 tts.tts_to_file(text=chunk, speaker_wav=ref, language="hi", file_path=name, 
-                                speed=speed_s, repetition_penalty=14.0, temperature=0.65)
+                                speed=speed_s, repetition_penalty=14.5, temperature=0.6)
                 seg = AudioSegment.from_wav(name)
                 if use_silence:
                     try: seg = effects.strip_silence(seg, silence_thresh=-45, padding=150)
@@ -62,9 +59,11 @@ def generate_shiv_locked_final(text, up_ref, git_ref, speed_s, pitch_s, use_sile
                 combined += seg
         torch.cuda.empty_cache(); gc.collect()
 
-    combined = apply_pro_audio_fx(combined, use_clean)
+    # ६. बेस और सफाई (LOCKED)
+    if use_clean:
+        combined = boost_bass(combined)
     
-    # ✅ ५. फाइनल फाइल - Shri Ram Nag.wav (LOCKED) [cite: 2026-02-21]
+    # ✅ फाइनल फाइल - Shri Ram Nag.wav [cite: 2026-02-21]
     final_path = "Shri Ram Nag.wav"
     combined.export(final_path, format="wav")
     return final_path
@@ -92,11 +91,11 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), js=js_code) as demo:
             with gr.Accordion("⚙️ टर्बो सेटिंग्स (LOCKED)", open=True):
                 spd = gr.Slider(0.8, 1.4, 1.0, label="रफ़्तार")
                 ptc = gr.Slider(0.8, 1.1, 0.96, label="पिच")
-                cln = gr.Checkbox(label="AI बेस बूस्टर & क्लीनर", value=True)
+                cln = gr.Checkbox(label="AI बेस और सफाई", value=True)
                 sln = gr.Checkbox(label="साइलेंस रिमूवर", value=True)
             btn = gr.Button("जनरेट करें 🚀", variant="primary")
             
     out = gr.Audio(label="Shri Ram Nag.wav", type="filepath", autoplay=True)
-    btn.click(generate_shiv_locked_final, [txt, manual, git_voice, spd, ptc, sln, cln], out)
+    btn.click(generate_shiv_final_locked, [txt, manual, git_voice, spd, ptc, sln, cln], out)
 
 demo.launch(share=True)
