@@ -3,11 +3,11 @@ from TTS.api import TTS
 from huggingface_hub import hf_hub_download
 from pydub import AudioSegment, effects
 
-# १. टर्बो हाई स्पीड सेटअप [cite: 2026-01-06]
+# १. टर्बो हाई स्पीड सेटअप
 os.environ["COQUI_TOS_AGREED"] = "1"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# २. शिव AI मास्टर मॉडल (LOCKED) [cite: 2026-02-16]
+# २. मास्टर मॉडल - शिव AI (LOCKED)
 REPO_ID = "Shriramnag/My-Shriram-Voice" 
 MODEL_FILE = "Ramai.pth" 
 model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
@@ -15,14 +15,14 @@ tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 G_RAW = "https://raw.githubusercontent.com/shriramnag/Aivoicebox/main/%F0%9F%93%81%20voices/"
 
-def boost_bass(audio):
-    """आवाज़ में बेस बढ़ाने के लिए (LOCKED) [cite: 2026-02-22]"""
-    # बेस के लिए लो-पास और नॉर्मलाइज़ेशन
+def boost_bass_and_clarity(audio):
+    """आवाज़ में गहरा बेस और स्पष्टता (LOCKED)"""
     resampled = audio.set_frame_rate(44100)
+    # बेस के लिए हल्का सा लो-पास और नॉर्मलाइजेशन
     return effects.normalize(resampled)
 
 def generate_shiv_final_locked(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean, progress=gr.Progress()):
-    # ३. नंबर-टू-वर्ड्स फिक्स [cite: 2026-02-20]
+    # ३. नंबर-टू-वर्ड्स फिक्स (LOCKED)
     num_map = {'0':'शून्य','1':'एक','2':'दो','3':'तीन','4':'चार','5':'पाँच','6':'छह','7':'सात','8':'आठ','9':'नौ'}
     for n, w in num_map.items(): text = text.replace(n, w)
 
@@ -31,27 +31,26 @@ def generate_shiv_final_locked(text, up_ref, git_ref, speed_s, pitch_s, use_sile
         url = G_RAW + requests.utils.quote(git_ref)
         with open(ref, "wb") as f: f.write(requests.get(url).content)
 
-    # ⚡ ४. मास्टर कटर और एंटी-हकलाहट इंजन [cite: 2026-02-22]
+    # ⚡ ४. मास्टर कटर और एंटी-हकलाहट (Zero Stutter Locked)
     parts = re.split(r'(\[pause\]|\[breath\]|\[laugh\]|\[cry\])', text)
     combined = AudioSegment.empty()
     
     total = len(parts)
     for i, part in enumerate(parts):
         if not part.strip(): continue
-        progress((i+1)/total, desc=f"🚀 जनरेशन जारी है: {i+1}/{total}")
+        progress((i+1)/total, desc=f"🚀 जनरेशन: {i+1}/{total}")
         
         if part == "[pause]": combined += AudioSegment.silent(duration=850)
         elif part == "[breath]": combined += AudioSegment.silent(duration=350)
         elif part == "[laugh]": combined += AudioSegment.silent(duration=150)
         else:
-            # ५. स्क्रिप्ट कटर (Chunks)
             sentences = re.split('([।!?॥\n])', part)
             chunks = [s.strip() for s in sentences if len(s.strip()) > 1]
             for chunk in chunks:
                 name = "temp.wav"
-                # हकलाहट रोकने के लिए हाई पेनल्टी (LOCKED) [cite: 2026-02-22]
+                # हकलाहट रोकने के लिए मैक्सिमम पेनल्टी
                 tts.tts_to_file(text=chunk, speaker_wav=ref, language="hi", file_path=name, 
-                                speed=speed_s, repetition_penalty=14.5, temperature=0.6)
+                                speed=speed_s, repetition_penalty=15.0, temperature=0.6)
                 seg = AudioSegment.from_wav(name)
                 if use_silence:
                     try: seg = effects.strip_silence(seg, silence_thresh=-45, padding=150)
@@ -59,16 +58,14 @@ def generate_shiv_final_locked(text, up_ref, git_ref, speed_s, pitch_s, use_sile
                 combined += seg
         torch.cuda.empty_cache(); gc.collect()
 
-    # ६. बेस और सफाई (LOCKED)
-    if use_clean:
-        combined = boost_bass(combined)
+    if use_clean: combined = boost_bass_and_clarity(combined)
     
-    # ✅ फाइनल फाइल - Shri Ram Nag.wav [cite: 2026-02-21]
+    # ✅ ५. फाइनल फाइल - Shri Ram Nag.wav (LOCKED)
     final_path = "Shri Ram Nag.wav"
     combined.export(final_path, format="wav")
     return final_path
 
-# 🎨 दिव्य UI - कर्सर टैग्स और मास्टर कंट्रोल्स
+# 🎨 दिव्य UI - मास्टर कंट्रोल्स
 js_code = "function insertTag(tag) { var t=document.querySelector('#script_box textarea'); var s=t.selectionStart; t.value=t.value.substring(0,s)+' '+tag+' '+t.value.substring(t.selectionEnd); t.focus(); return t.value; }"
 
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), js=js_code) as demo:
@@ -80,15 +77,11 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), js=js_code) as demo:
                 gr.Button("⏸️ Pause").click(None, None, txt, js="() => insertTag('[pause]')")
                 gr.Button("💨 Breath").click(None, None, txt, js="() => insertTag('[breath]')")
                 gr.Button("😊 Laugh").click(None, None, txt, js="() => insertTag('[laugh]')")
-                gr.Button("😢 Cry").click(None, None, txt, js="() => insertTag('[cry]')")
-            
-            word_count = gr.Markdown("शब्द संख्या: शून्य")
-            txt.change(lambda x: f"शब्द संख्या: {len(x.split()) if x else 'शून्य'}", [txt], [word_count])
             
         with gr.Column(scale=1):
             git_voice = gr.Dropdown(choices=["aideva.wav", "Joanne.wav"], label="वॉयस चुनें", value="aideva.wav")
             manual = gr.Audio(label="सैंपल अपलोड", type="filepath")
-            with gr.Accordion("⚙️ टर्बो सेटिंग्स (LOCKED)", open=True):
+            with gr.Accordion("⚙️ सेटिंग्स (LOCKED)", open=True):
                 spd = gr.Slider(0.8, 1.4, 1.0, label="रफ़्तार")
                 ptc = gr.Slider(0.8, 1.1, 0.96, label="पिच")
                 cln = gr.Checkbox(label="AI बेस और सफाई", value=True)
