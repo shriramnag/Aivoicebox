@@ -3,11 +3,11 @@ from TTS.api import TTS
 from huggingface_hub import hf_hub_download
 from pydub import AudioSegment, effects
 
-# १. टर्बो सेटअप और GPU लॉक [cite: 2026-01-06]
+# १. टर्बो हाई स्पीड सेटअप
 os.environ["COQUI_TOS_AGREED"] = "1"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# २. मास्टर मॉडल - शिव AI (LOCKED) [cite: 2026-02-16]
+# २. मास्टर मॉडल - शिव AI (LOCKED)
 REPO_ID = "Shriramnag/My-Shriram-Voice" 
 MODEL_FILE = "Ramai.pth" 
 model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
@@ -15,13 +15,13 @@ tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 G_RAW = "https://raw.githubusercontent.com/shriramnag/Aivoicebox/main/%F0%9F%93%81%20voices/"
 
-# ✨ नया फीचर: मिनीमैक्स स्टाइल टैग इंसर्टर [cite: 2026-02-22]
-def insert_tag(original_text, tag):
-    if not original_text: return tag
-    return original_text + " " + tag + " "
+# ✨ मिनीमैक्स स्टाइल: बटन दबाते ही स्क्रिप्ट में टैग जोड़ना
+def add_emotion_tag(current_text, tag_value):
+    if current_text is None: current_text = ""
+    return current_text + f" {tag_value} "
 
-def generate_shiv_final(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean):
-    # ३. नंबर-टू-वर्ड्स फिक्स [cite: 2026-02-20]
+def generate_shiv_ultimate(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean):
+    # ३. नंबर-टू-वर्ड्स फिक्स (LOCKED)
     num_map = {'0':'शून्य','1':'एक','2':'दो','3':'तीन','4':'चार','5':'पाँच','6':'छह','7':'सात','8':'आठ','9':'नौ'}
     for n, w in num_map.items(): text = text.replace(n, w)
 
@@ -31,13 +31,12 @@ def generate_shiv_final(text, up_ref, git_ref, speed_s, pitch_s, use_silence, us
         url = G_RAW + requests.utils.quote(git_ref)
         with open(ref, "wb") as f: f.write(requests.get(url).content)
 
-    # ५. इमोशन टैग्स के साथ चंकिंग [cite: 2026-02-18, 2026-02-22]
+    # ५. चंकिंग और टर्बो जनरेशन (XTTS टैग्स को खुद समझता है)
     chunks = [s.strip() for s in re.split('([।!?॥\n])', text) if len(s.strip()) > 1]
     combined = AudioSegment.empty()
     
     for i, chunk in enumerate(chunks):
         name = f"c_{i}.wav"
-        # XTTS टैग्स को प्रोसेस करता है
         tts.tts_to_file(text=chunk, speaker_wav=ref, language="hi", file_path=name, speed=speed_s, repetition_penalty=10.0)
         seg = AudioSegment.from_wav(name)
         if use_silence:
@@ -48,40 +47,42 @@ def generate_shiv_final(text, up_ref, git_ref, speed_s, pitch_s, use_silence, us
     
     if use_clean: combined = effects.normalize(combined).high_pass_filter(80)
 
-    # ✅ फाइनल आउटपुट - Shri Ram Nag.wav [cite: 2026-02-21]
+    # ✅ फाइनल फाइल नेम - Shri Ram Nag.wav (LOCKED)
     out_file = "Shri Ram Nag.wav"
     combined.export(out_file, format="wav")
     return out_file
 
-# 🎨 दिव्य UI - मिनीमैक्स बटन्स के साथ
+# 🎨 दिव्य 'मिनीमैक्स' थीम UI
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange")) as demo:
     gr.Markdown("# 🚩 शिव AI (Shiv AI) - 'श्री राम नाग' इमोशन स्टूडियो")
+    
     with gr.Row():
         with gr.Column(scale=2):
-            txt = gr.Textbox(label="अपनी स्क्रिप्ट यहाँ लिखें", lines=10)
+            txt = gr.Textbox(label="अपनी स्क्रिप्ट यहाँ लिखें", lines=12, placeholder="बटन दबाकर पोज़ या सांस जोड़ें...")
             
-            # 🔘 मिनीमैक्स स्टाइल बटन्स [cite: 2026-02-22]
+            # 🔘 मिनीमैक्स जैसे बटन (Blue Tag Style)
             with gr.Row():
-                p_btn = gr.Button("⏸️ Pause (<#0.5#>)")
-                b_btn = gr.Button("💨 Breath (breath)")
-                l_btn = gr.Button("😊 Laugh (laugh)")
+                btn_p = gr.Button("⏸️ Pause (<#0.5#>)")
+                btn_b = gr.Button("💨 Breath (breath)")
+                btn_l = gr.Button("😊 Laugh (laugh)")
             
-            p_btn.click(lambda x: insert_tag(x, "[pause]"), [txt], [txt])
-            b_btn.click(lambda x: insert_tag(x, "[breath]"), [txt], [txt])
-            l_btn.click(lambda x: insert_tag(x, "[laugh]"), [txt], [txt])
+            # बटन क्लिक करने पर स्क्रिप्ट के आगे टैग जुड़ जाएगा
+            btn_p.click(add_emotion_tag, [txt, gr.State("[pause]")], [txt])
+            btn_b.click(add_emotion_tag, [txt, gr.State("[breath]")], [txt])
+            btn_l.click(add_emotion_tag, [txt, gr.State("[laugh]")], [txt])
             
             word_count = gr.Markdown("शब्द संख्या: शून्य")
             txt.change(lambda x: f"शब्द संख्या: {len(x.split()) if x else 'शून्य'}", [txt], [word_count])
             
         with gr.Column(scale=1):
             git_drop = gr.Dropdown(choices=["Joanne.wav", "Shri Shri.wav"], label="गिटहब वॉयस", value="Joanne.wav")
-            up_aud = gr.Audio(label="या अपना सैंपल दें", type="filepath")
+            up_aud = gr.Audio(label="अपलोड सैंपल", type="filepath")
             with gr.Accordion("🛠️ सुपर टूल्स (LOCKED)", open=True):
                 cln_sw = gr.Checkbox(label="AI वॉयस क्लीनर", value=True)
                 sln_sw = gr.Checkbox(label="साइलेंस रिमूवर", value=True)
             btn = gr.Button("दिव्य जनरेशन शुरू करें 🚀", variant="primary")
             
     out = gr.Audio(label="डाउनलोड: Shri Ram Nag.wav", type="filepath", autoplay=True)
-    btn.click(generate_shiv_final, [txt, up_aud, git_drop, gr.Slider(0.8, 1.4, 1.0), gr.Slider(0.8, 1.1, 0.96), sln_sw, cln_sw], out)
+    btn.click(generate_shiv_ultimate, [txt, up_aud, git_drop, gr.Slider(0.8, 1.4, 1.0), gr.Slider(0.8, 1.1, 0.96), sln_sw, cln_sw], out)
 
 demo.launch(share=True)
