@@ -3,11 +3,11 @@ from TTS.api import TTS
 from huggingface_hub import hf_hub_download
 from pydub import AudioSegment, effects
 
-# १. टर्बो हाई स्पीड सेटअप
+# १. टर्बो हाई स्पीड सेटअप [cite: 2026-01-06]
 os.environ["COQUI_TOS_AGREED"] = "1"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# २. मास्टर मॉडल - शिव AI (LOCKED)
+# २. मास्टर मॉडल - शिव AI (LOCKED) [cite: 2026-02-16, 2026-02-20]
 REPO_ID = "Shriramnag/My-Shriram-Voice" 
 MODEL_FILE = "Ramai.pth" 
 model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
@@ -16,13 +16,12 @@ tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 G_RAW = "https://raw.githubusercontent.com/shriramnag/Aivoicebox/main/%F0%9F%93%81%20voices/"
 
 def boost_bass_and_clarity(audio):
-    """आवाज़ में गहरा बेस और स्पष्टता (LOCKED)"""
+    """आवाज़ में गहरा बेस और स्पष्टता (LOCKED) [cite: 2026-02-22]"""
     resampled = audio.set_frame_rate(44100)
-    # बेस के लिए हल्का सा लो-पास और नॉर्मलाइजेशन
     return effects.normalize(resampled)
 
 def generate_shiv_final_locked(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean, progress=gr.Progress()):
-    # ३. नंबर-टू-वर्ड्स फिक्स (LOCKED)
+    # ३. नंबर-टू-वर्ड्स फिक्स [cite: 2026-02-20]
     num_map = {'0':'शून्य','1':'एक','2':'दो','3':'तीन','4':'चार','5':'पाँच','6':'छह','7':'सात','8':'आठ','9':'नौ'}
     for n, w in num_map.items(): text = text.replace(n, w)
 
@@ -31,7 +30,7 @@ def generate_shiv_final_locked(text, up_ref, git_ref, speed_s, pitch_s, use_sile
         url = G_RAW + requests.utils.quote(git_ref)
         with open(ref, "wb") as f: f.write(requests.get(url).content)
 
-    # ⚡ ४. मास्टर कटर और एंटी-हकलाहट (Zero Stutter Locked)
+    # ⚡ ४. मास्टर कटर और एंटी-हकलाहट इंजन [cite: 2026-02-22]
     parts = re.split(r'(\[pause\]|\[breath\]|\[laugh\]|\[cry\])', text)
     combined = AudioSegment.empty()
     
@@ -44,11 +43,11 @@ def generate_shiv_final_locked(text, up_ref, git_ref, speed_s, pitch_s, use_sile
         elif part == "[breath]": combined += AudioSegment.silent(duration=350)
         elif part == "[laugh]": combined += AudioSegment.silent(duration=150)
         else:
+            # स्क्रिप्ट कटर (Chunks for 50 mins script) [cite: 2026-02-22]
             sentences = re.split('([।!?॥\n])', part)
             chunks = [s.strip() for s in sentences if len(s.strip()) > 1]
             for chunk in chunks:
                 name = "temp.wav"
-                # हकलाहट रोकने के लिए मैक्सिमम पेनल्टी
                 tts.tts_to_file(text=chunk, speaker_wav=ref, language="hi", file_path=name, 
                                 speed=speed_s, repetition_penalty=15.0, temperature=0.6)
                 seg = AudioSegment.from_wav(name)
@@ -60,12 +59,11 @@ def generate_shiv_final_locked(text, up_ref, git_ref, speed_s, pitch_s, use_sile
 
     if use_clean: combined = boost_bass_and_clarity(combined)
     
-    # ✅ ५. फाइनल फाइल - Shri Ram Nag.wav (LOCKED)
     final_path = "Shri Ram Nag.wav"
     combined.export(final_path, format="wav")
     return final_path
 
-# 🎨 दिव्य UI - मास्टर कंट्रोल्स
+# 🎨 दिव्य UI - मास्टर कंट्रोल्स (LOCKED) [cite: 2026-02-22, 2026-02-23]
 js_code = "function insertTag(tag) { var t=document.querySelector('#script_box textarea'); var s=t.selectionStart; t.value=t.value.substring(0,s)+' '+tag+' '+t.value.substring(t.selectionEnd); t.focus(); return t.value; }"
 
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), js=js_code) as demo:
@@ -73,6 +71,11 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), js=js_code) as demo:
     with gr.Row():
         with gr.Column(scale=2):
             txt = gr.Textbox(label="अपनी स्क्रिप्ट यहाँ लिखें", lines=12, elem_id="script_box")
+            
+            # वर्ड काउंटर सही जगह पर [cite: 2026-02-23]
+            word_counter = gr.Markdown("शब्द संख्या: शून्य")
+            txt.change(lambda x: f"शब्द संख्या: {len(x.split()) if x else 'शून्य'}", [txt], [word_counter])
+            
             with gr.Row():
                 gr.Button("⏸️ Pause").click(None, None, txt, js="() => insertTag('[pause]')")
                 gr.Button("💨 Breath").click(None, None, txt, js="() => insertTag('[breath]')")
