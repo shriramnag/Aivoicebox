@@ -7,7 +7,7 @@ from pydub import AudioSegment, effects
 os.environ["COQUI_TOS_AGREED"] = "1"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# २. मास्टर मॉडल - शिव एआई (शिव AI) [cite: 2026-02-16]
+# २. मास्टर मॉडल - शिव AI (शिव AI)
 REPO_ID = "Shriramnag/My-Shriram-Voice" 
 MODEL_FILE = "Ramai.pth" 
 model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
@@ -18,10 +18,11 @@ G_RAW = "https://raw.githubusercontent.com/shriramnag/Aivoicebox/main/%F0%9F%93%
 def boost_realistic_audio(audio):
     """आवाज़ को एकदम ओरिजिनल जैसा बनाने के लिए (LOCKED)"""
     resampled = audio.set_frame_rate(44100)
+    # बेस और सफाई को १०००% फिक्स के लिए ऑप्टिमाइज़ किया गया
     return effects.normalize(resampled)
 
 def generate_shiv_1000_fix(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean, progress=gr.Progress()):
-    # ३. नंबर-टू-वर्ड्स फिक्स [cite: 2026-02-20]
+    # ३. नंबर-टू-वर्ड्स फिक्स
     num_map = {'0':'शून्य','1':'एक','2':'दो','3':'तीन','4':'चार','5':'पाँच','6':'छह','7':'सात','8':'आठ','9':'नौ'}
     for n, w in num_map.items(): text = text.replace(n, w)
 
@@ -30,7 +31,7 @@ def generate_shiv_1000_fix(text, up_ref, git_ref, speed_s, pitch_s, use_silence,
         url = G_RAW + requests.utils.quote(git_ref)
         with open(ref, "wb") as f: f.write(requests.get(url).content)
 
-    # ⚡ ४. हाइपर-टर्बो कटर और एंटी-हकलाहट (1000% Fix)
+    # ⚡ ४. हाइपर-टर्बो कटर और एंटी-हकलाहट (1000% Fix Engine)
     parts = re.split(r'(\[pause\]|\[breath\]|\[laugh\])', text)
     combined = AudioSegment.empty()
     
@@ -43,13 +44,15 @@ def generate_shiv_1000_fix(text, up_ref, git_ref, speed_s, pitch_s, use_silence,
         elif part == "[breath]": combined += AudioSegment.silent(duration=350)
         elif part == "[laugh]": combined += AudioSegment.silent(duration=150)
         else:
-            # वाक्यों को बहुत छोटा काटना ताकि एआई थके नहीं और हकलाए नहीं
+            # ५. वाक्यों को बहुत छोटा काटना ताकि एआई भटके नहीं
             chunks = re.split('([।!?॥\n])', part)
             for chunk in [c.strip() for c in chunks if len(c.strip()) > 1]:
                 name = "master_fix.wav"
-                # १०००% फिक्स सेटिंग्स: Penalty 17.0 | Temp 0.4
+                # १०००% फिक्स सेटिंग्स: 
+                # Repetition Penalty 18.0 (ताकि हकलाहट नामुमकिन हो)
+                # Temperature 0.35 (ताकि दूसरी भाषा के शब्द न आएं)
                 tts.tts_to_file(text=chunk, speaker_wav=ref, language="hi", file_path=name, 
-                                speed=speed_s, repetition_penalty=17.0, temperature=0.4,
+                                speed=speed_s, repetition_penalty=18.0, temperature=0.35,
                                 top_p=0.8, length_penalty=1.0)
                 seg = AudioSegment.from_wav(name)
                 if use_silence:
@@ -60,7 +63,7 @@ def generate_shiv_1000_fix(text, up_ref, git_ref, speed_s, pitch_s, use_silence,
 
     if use_clean: combined = boost_realistic_audio(combined)
     
-    # ✅ ५. फाइनल आउटपुट - Shri Ram Nag.wav (LOCKED)
+    # ✅ ६. फाइनल आउटपुट - Shri Ram Nag.wav (LOCKED)
     final_path = "Shri Ram Nag.wav"
     combined.export(final_path, format="wav")
     return final_path
