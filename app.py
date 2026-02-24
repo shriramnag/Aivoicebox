@@ -3,11 +3,11 @@ from TTS.api import TTS
 from huggingface_hub import hf_hub_download
 from pydub import AudioSegment, effects
 
-# १. टर्बो हाई स्पीड सेटअप (LOCKED) [cite: 2026-01-06]
+# १. टर्बो हाई स्पीड सेटअप (LOCKED)
 os.environ["COQUI_TOS_AGREED"] = "1"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# २. मास्टर मॉडल - शिव AI (Shiv AI) [cite: 2026-02-16]
+# २. मास्टर मॉडल - शिव AI (Shiv AI)
 REPO_ID = "Shriramnag/My-Shriram-Voice" 
 MODEL_FILE = "Ramai.pth" 
 model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
@@ -16,19 +16,18 @@ tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 G_RAW = "https://raw.githubusercontent.com/shriramnag/Aivoicebox/main/%F0%9F%93%81%20voices/"
 
 def boost_realistic_audio(audio):
-    """आवाज़ की स्पष्टता और बेस (LOCKED) [cite: 2026-02-22]"""
+    """आवाज़ की स्पष्टता और बेस (LOCKED)"""
     resampled = audio.set_frame_rate(44100)
     return effects.normalize(resampled)
 
 def detect_lang_and_fix_numbers(text):
-    """🤖 शिव AI का स्मार्ट लैंग्वेज और नंबर डिटेक्टर [cite: 2026-02-20]"""
-    # चेक करेगा कि वाक्य में इंग्लिश ज्यादा है या हिंदी
+    """🤖 शिव AI का स्मार्ट लैंग्वेज और नंबर डिटेक्टर"""
     eng_chars = len(re.findall(r'[a-zA-Z]', text))
     hi_chars = len(re.findall(r'[\u0900-\u097F]', text))
     
     lang = "en" if eng_chars > hi_chars else "hi"
     
-    # नंबरों को शब्दों में बदलना ताकि हकलाहट न हो [cite: 2026-02-20]
+    # नंबरों को शब्दों में बदलना ताकि हकलाहट न हो
     if lang == "hi":
         num_map = {'0':'शून्य','1':'एक','2':'दो','3':'तीन','4':'चार','5':'पाँच','6':'छह','7':'सात','8':'आठ','9':'नौ'}
         for n, w in num_map.items(): text = text.replace(n, w)
@@ -38,13 +37,13 @@ def detect_lang_and_fix_numbers(text):
         
     return text, lang
 
-def generate_shiv_bilingual_locked(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean, progress=gr.Progress()):
+def generate_shiv_bilingual_ultra_locked(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean, progress=gr.Progress()):
     ref = up_ref if up_ref else "ref.wav"
     if not up_ref:
         url = G_RAW + requests.utils.quote(git_ref)
         with open(ref, "wb") as f: f.write(requests.get(url).content)
 
-    # ⚡ ३. द्विभाषी (Bilingual) कटर और प्रोग्रेस ट्रैकिंग [cite: 2026-02-23]
+    # ⚡ ३. द्विभाषी कटर और अल्ट्रा-स्मूथ प्रोग्रेस ट्रैकिंग
     raw_parts = re.split(r'(\[pause\]|\[breath\]|\[laugh\])', text)
     all_tasks = []
     for p in raw_parts:
@@ -52,28 +51,31 @@ def generate_shiv_bilingual_locked(text, up_ref, git_ref, speed_s, pitch_s, use_
             all_tasks.append(p.strip())
         elif p.strip():
             # हिंदी (।) और इंग्लिश (.) दोनों के फुलस्टॉप को समझेगा
-            sentences = re.split(r'[।!?॥\n.]+', p)
+            sentences = re.split(r'[।!?॥\n]+', p)
             all_tasks.extend([s.strip() for s in sentences if len(s.strip()) > 1])
     
     combined = AudioSegment.empty()
     total = len(all_tasks)
     
     for i, task in enumerate(all_tasks):
-        progress((i+1)/total, desc=f"⚡ द्विभाषी क्लोनिंग जारी: {i+1} / {total}")
+        progress((i+1)/total, desc=f"⚡ द्विभाषी अल्ट्रा-स्मूथ क्लोनिंग: {i+1} / {total}")
         
         if task == "[pause]": combined += AudioSegment.silent(duration=850)
         elif task == "[breath]": combined += AudioSegment.silent(duration=350)
         elif task == "[laugh]": combined += AudioSegment.silent(duration=150)
         else:
-            # 🧠 स्मार्ट भाषा पहचान [cite: 2026-02-20]
+            # 🧠 स्मार्ट भाषा पहचान
             task_clean, detected_lang = detect_lang_and_fix_numbers(task)
             
             name = f"chunk_{i}.wav"
             
-            # दूसरी भाषा (Hallucination) और हकलाहट पर १०००% लगाम (LOCKED)
+            # --- हकलाहट पर १०००% फाइनल प्रहार (LOCKED) ---
+            # Temperature 0.15: एआई को सोचने की आज़ादी नहीं, सीधा पढ़ेगा।
+            # Repetition Penalty 20.0: हकलाहट (Stuttering) का नामों-निशान मिटा देगा।
+            # Top_k 10: सबसे सटीक उच्चारण वाले शब्द ही चुनेगा।
             tts.tts_to_file(text=task_clean, speaker_wav=ref, language=detected_lang, file_path=name, 
-                            speed=speed_s, repetition_penalty=15.0, temperature=0.3,
-                            top_k=20, top_p=0.85)
+                            speed=speed_s, repetition_penalty=20.0, temperature=0.15,
+                            top_k=10, top_p=0.8)
             
             seg = AudioSegment.from_wav(name)
             if use_silence:
@@ -90,7 +92,7 @@ def generate_shiv_bilingual_locked(text, up_ref, git_ref, speed_s, pitch_s, use_
     combined.export(final_path, format="wav")
     return final_path
 
-# 🎨 दिव्य UI - मास्टर लॉक [cite: 2026-02-22, 2026-02-23]
+# 🎨 दिव्य UI - मास्टर लॉक 
 js_code = "function insertTag(tag) { var t=document.querySelector('#script_box textarea'); var s=t.selectionStart; t.value=t.value.substring(0,s)+' '+tag+' '+t.value.substring(t.selectionEnd); t.focus(); return t.value; }"
 
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), js=js_code) as demo:
@@ -118,6 +120,6 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), js=js_code) as demo:
             btn = gr.Button("शुद्ध द्विभाषी जनरेशन 🚀", variant="primary")
             
     out = gr.Audio(label="Shri Ram Nag.wav", type="filepath", autoplay=True)
-    btn.click(generate_shiv_bilingual_locked, [txt, manual, git_voice, spd, ptc, sln, cln], out)
+    btn.click(generate_shiv_bilingual_ultra_locked, [txt, manual, git_voice, spd, ptc, sln, cln], out)
 
 demo.launch(share=True)
