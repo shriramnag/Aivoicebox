@@ -20,13 +20,13 @@ def boost_realistic_audio(audio):
     resampled = audio.set_frame_rate(44100)
     return effects.normalize(resampled)
 
-def smart_language_detector(text):
-    """🤖 शिव एआई का द्विभाषी इंजन - हिंदी और इंग्लिश की शुद्ध पहचान [cite: 2026-02-24]"""
+def smart_bilingual_cleaner(text):
+    """🤖 भाषा पहचान और नंबरों का शुद्धिकरण [cite: 2026-02-20, 2026-02-24]"""
     eng_chars = len(re.findall(r'[a-zA-Z]', text))
     hi_chars = len(re.findall(r'[\u0900-\u097F]', text))
     lang = "en" if eng_chars > hi_chars else "hi"
     
-    # नंबरों को शब्दों में बदलना (LOCKED) [cite: 2026-02-20]
+    # नंबरों को शब्दों में बदलना (हकलाहट रोकने के लिए) [cite: 2026-02-20]
     if lang == "hi":
         num_map = {'0':'शून्य','1':'एक','2':'दो','3':'तीन','4':'चार','5':'पाँच','6':'छह','7':'सात','8':'आठ','9':'नौ'}
         for n, w in num_map.items(): text = text.replace(n, w)
@@ -35,41 +35,40 @@ def smart_language_detector(text):
         for n, w in en_map.items(): text = text.replace(n, w)
     return text, lang
 
-def generate_shiv_bilingual_ultra_fix(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean, progress=gr.Progress()):
+def generate_shiv_ultimate_fix(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean, progress=gr.Progress()):
     ref = up_ref if up_ref else "ref.wav"
     if not up_ref:
         url = G_RAW + requests.utils.quote(git_ref)
         with open(ref, "wb") as f: f.write(requests.get(url).content)
 
-    # ⚡ ३. अल्ट्रा प्रोग्रेस ट्रैकिंग और वाक्य विभाजन [cite: 2026-02-23]
+    # ⚡ ३. शुद्ध वाक्य विभाजन (Regex Fix) [cite: 2026-02-23]
     raw_parts = re.split(r'(\[pause\]|\[breath\]|\[laugh\])', text)
     all_tasks = []
     for p in raw_parts:
         if p.strip() in ["[pause]", "[breath]", "[laugh]"]: all_tasks.append(p.strip())
         elif p.strip():
-            # हिंदी पूर्णविराम और इंग्लिश फुलस्टॉप दोनों को पहचानेगा
             sentences = re.split(r'[।!?॥\n.]+', p)
-            all_tasks.extend([s.strip() for s in sentences if len(s.strip()) > 1])
+            all_tasks.extend([s.strip() for s in sentences if len(s.strip()) > 2])
     
     combined = AudioSegment.empty()
     total = len(all_tasks)
     
     for i, task in enumerate(all_tasks):
-        progress((i+1)/total, desc=f"⚡ १०००% शुद्ध द्विभाषी क्लोनिंग: {i+1} / {total}")
+        progress((i+1)/total, desc=f"⚡ १०००% शुद्ध क्लोनिंग: {i+1} / {total}")
         
         if task == "[pause]": combined += AudioSegment.silent(duration=850)
         elif task == "[breath]": combined += AudioSegment.silent(duration=350)
         elif task == "[laugh]": combined += AudioSegment.silent(duration=150)
         else:
-            task_clean, detected_lang = smart_language_detector(task)
+            task_clean, detected_lang = smart_bilingual_cleaner(task)
             name = f"chunk_{i}.wav"
             
-            # --- भाषा और हकलाहट पर १०००% लगाम (LOCKED) --- [cite: 2026-02-23, 2026-02-24]
-            # Temperature 0.1: एआई को "रचनात्मक" होने से पूरी तरह रोकता है।
-            # Repetition Penalty 25.0: हकलाना नामुमकिन है।
-            # Top_k 5: केवल सबसे सटीक उच्चारण वाले शब्द।
+            # --- १०००% फिक्स पैरामीटर्स (LOCKED) --- [cite: 2026-02-23, 2026-02-25]
+            # Temperature 0.15: एआई को "फालतू" बोलने से रोकता है।
+            # Repetition Penalty 28.0: हकलाना और शब्दों का दोहराव नामुमकिन।
+            # Top_k 5: केवल सबसे सटीक ध्वनियों का चुनाव।
             tts.tts_to_file(text=task_clean, speaker_wav=ref, language=detected_lang, file_path=name, 
-                            speed=speed_s, repetition_penalty=25.0, temperature=0.1,
+                            speed=speed_s, repetition_penalty=28.0, temperature=0.15,
                             top_k=5, top_p=0.8)
             
             seg = AudioSegment.from_wav(name)
@@ -86,11 +85,11 @@ def generate_shiv_bilingual_ultra_fix(text, up_ref, git_ref, speed_s, pitch_s, u
     combined.export(final_path, format="wav")
     return final_path
 
-# 🎨 दिव्य UI - मास्टर लॉक [cite: 2026-02-24]
+# 🎨 दिव्य UI - मास्टर कंट्रोल (LOCKED) [cite: 2026-02-22]
 js_code = "function insertTag(tag) { var t=document.querySelector('#script_box textarea'); var s=t.selectionStart; t.value=t.value.substring(0,s)+' '+tag+' '+t.value.substring(t.selectionEnd); t.focus(); return t.value; }"
 
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), js=js_code) as demo:
-    gr.Markdown("# 🚩 शिव एआई (Shiv AI) - 'श्री राम नाग' द्विभाषी १०००% शुद्ध लॉक")
+    gr.Markdown("# 🚩 शिव एआई (Shiv AI) - 'श्री राम नाग' महाज्ञानी १०००% शुद्ध लॉक")
     with gr.Row():
         with gr.Column(scale=2):
             txt = gr.Textbox(label="हिंदी और इंग्लिश मिक्स स्क्रिप्ट यहाँ लिखें", lines=12, elem_id="script_box")
@@ -110,6 +109,6 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), js=js_code) as demo:
                 sln = gr.Checkbox(label="साइलेंस रिमूवर", value=True)
             btn = gr.Button("१०००% शुद्ध जनरेशन 🚀", variant="primary")
     out = gr.Audio(label="Shri Ram Nag.wav", type="filepath", autoplay=True)
-    btn.click(generate_shiv_bilingual_ultra_fix, [txt, manual, git_voice, spd, ptc, sln, cln], out)
+    btn.click(generate_shiv_ultimate_fix, [txt, manual, git_voice, spd, ptc, sln, cln], out)
 
 demo.launch(share=True)
