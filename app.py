@@ -1,75 +1,186 @@
 """
-â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
-â•‘      SHIV AI v4.0 â€” à¤¶à¥à¤°à¥€ à¤°à¤¾à¤® à¤¨à¤¾à¤— Voice Cloning             â•‘
-â•‘      app.py â€” Main Application                              â•‘
-â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•£
-â•‘  SABHI FIXES:                                               â•‘
-â•‘  âœ… English words sahi bolega (phonetic Hindi se)            â•‘
-â•‘  âœ… Beech mein "dusri line" gap band (0ms inter-chunk)       â•‘
-â•‘  âœ… Haklahat nahi (temperature=0.75, rep_penalty=2.5)        â•‘
-â•‘  âœ… Self-learning brain â€” galtiyon se seekhta hai            â•‘
-â•‘  âœ… GitHub sync â€” restart pe yaad rehta hai                  â•‘
-â•‘  âœ… User corrections â€” seedha brain mein jaati hain          â•‘
-â•‘  âœ… Mono output, Loudness matched                            â•‘
-â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+SHIV AI v4.1 — श्री राम नाग | Launch-Safe Version
+====================================================
+Launch errors fixed:
+✅ brain.py import fail → graceful fallback
+✅ TTS/torch missing → clear error message  
+✅ Ramai.pth load fail → silently skip
+✅ GitHub token missing → local-only mode
+✅ Gradio version mismatch → compatible syntax
+✅ numpy missing → fallback loudness match
 """
 
-import os, torch, gradio as gr, requests, re, gc
-import numpy as np
-from TTS.api import TTS
-from huggingface_hub import hf_hub_download
-from pydub import AudioSegment, effects
+import os, re, gc
+import sys
 
-# â”€â”€ BRAIN IMPORT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-from brain import (
-    load_memory, load_english_map, save_english_map,
-    fix_english_in_hindi, get_inter_chunk_pause,
-    record_generation, user_teaches, get_stats,
-    sync_to_github, load_from_github
-)
+# ════════════════════════════════════════════════════════════
+# STEP 1: SAFE IMPORTS — Kuch bhi miss ho to app crash na kare
+# ════════════════════════════════════════════════════════════
+print("🔄 Libraries load ho rahi hain...")
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# SETUP
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+try:
+    import torch
+    TORCH_OK = True
+    print(f"✅ torch {torch.__version__}")
+except ImportError:
+    TORCH_OK = False
+    print("❌ torch nahi mila — CPU mode mein chalega")
+
+try:
+    import gradio as gr
+    print(f"✅ gradio {gr.__version__}")
+except ImportError:
+    print("❌ FATAL: gradio install nahi hai!")
+    print("   Command: pip install gradio")
+    sys.exit(1)
+
+try:
+    from pydub import AudioSegment, effects
+    PYDUB_OK = True
+    print("✅ pydub OK")
+except ImportError:
+    PYDUB_OK = False
+    print("❌ pydub nahi mila — audio processing limited hogi")
+
+try:
+    import numpy as np
+    NUMPY_OK = True
+    print("✅ numpy OK")
+except ImportError:
+    NUMPY_OK = False
+    print("⚠️ numpy nahi mila — loudness match skip hogi")
+
+try:
+    import requests
+    REQUESTS_OK = True
+    print("✅ requests OK")
+except ImportError:
+    REQUESTS_OK = False
+    print("⚠️ requests nahi mila — GitHub voice download nahi hogi")
+
+try:
+    from TTS.api import TTS
+    TTS_OK = True
+    print("✅ TTS (Coqui) OK")
+except ImportError:
+    TTS_OK = False
+    print("❌ TTS nahi mili — voice generate nahi hogi")
+    print("   Command: pip install TTS")
+
+try:
+    from huggingface_hub import hf_hub_download
+    HF_OK = True
+    print("✅ huggingface_hub OK")
+except ImportError:
+    HF_OK = False
+    print("⚠️ huggingface_hub nahi mila — model download skip")
+
+# ════════════════════════════════════════════════════════════
+# STEP 2: BRAIN IMPORT — brain.py na mile to bhi kaam kare
+# ════════════════════════════════════════════════════════════
+BRAIN_OK = False
+try:
+    from brain import (
+        load_english_map, fix_english_in_hindi,
+        get_inter_chunk_pause, record_generation,
+        user_teaches, get_stats,
+        sync_to_github, load_from_github
+    )
+    BRAIN_OK = True
+    print("✅ brain.py connected!")
+except ImportError as e:
+    print(f"⚠️ brain.py nahi mila ({e}) — basic mode mein chalega")
+    # Fallback functions — brain.py na ho to bhi crash nahi
+    def load_english_map():
+        return {
+            "AI":"ए आई","YouTube":"यूट्यूब","WhatsApp":"व्हाट्सएप",
+            "Instagram":"इंस्टाग्राम","Facebook":"फेसबुक",
+            "Google":"गूगल","GitHub":"गिटहब","subscribe":"सब्सक्राइब",
+            "like":"लाइक","share":"शेयर","comment":"कमेंट",
+            "download":"डाउनलोड","upload":"अपलोड","online":"ऑनलाइन",
+            "video":"वीडियो","audio":"ऑडियो","mobile":"मोबाइल",
+            "app":"एप","website":"वेबसाइट","technology":"टेक्नोलॉजी",
+            "digital":"डिजिटल","channel":"चैनल","live":"लाइव",
+        }
+    def fix_english_in_hindi(text, emap):
+        if not re.search(r'[\u0900-\u097F]', text):
+            return text
+        words = text.split()
+        result = []
+        for w in words:
+            matched = next((v for k,v in emap.items() if k.lower()==w.lower()), None)
+            result.append(matched if matched else w)
+        return ' '.join(result)
+    def get_inter_chunk_pause(chunk):
+        t = chunk.strip()
+        if t.endswith(('।','॥','!','?','.')): return 100
+        elif t.endswith(','): return 50
+        return 0
+    def record_generation(*a, **k): pass
+    def user_teaches(w, h):
+        return f"⚠️ brain.py nahi mila — '{w}' yaad nahi rakh paya"
+    def get_stats():
+        return "⚠️ brain.py nahi mila — stats unavailable"
+    def sync_to_github(t, r=""):
+        return "⚠️ brain.py nahi mila — sync nahi hogi"
+    def load_from_github(t, r=""): pass
+
+# ════════════════════════════════════════════════════════════
+# STEP 3: DEVICE + MODEL SETUP
+# ════════════════════════════════════════════════════════════
 os.environ["COQUI_TOS_AGREED"] = "1"
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"ðŸ”§ Device: {device}")
 
-# GitHub Token â€” Hugging Face Spaces mein set karo:
-# Settings â†’ Variables and Secrets â†’ GITHUB_TOKEN
+if TORCH_OK:
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+else:
+    device = "cpu"
+print(f"🔧 Device: {device}")
+
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPO  = "shriramnag/Aivoicebox"
 
-# App start pe GitHub se brain load karo
-if GITHUB_TOKEN:
-    print("ðŸ”„ GitHub se brain load ho raha hai...")
-    load_from_github(GITHUB_TOKEN, GITHUB_REPO)
+# GitHub se brain load karo (agar token ho)
+if GITHUB_TOKEN and BRAIN_OK:
+    try:
+        print("🔄 GitHub se brain data load...")
+        load_from_github(GITHUB_TOKEN, GITHUB_REPO)
+        print("✅ Brain loaded from GitHub")
+    except Exception as e:
+        print(f"⚠️ GitHub brain load fail: {e}")
 
-# â”€â”€ XTTS MODEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-REPO_ID    = "Shriramnag/My-Shriram-Voice"
-MODEL_FILE = "Ramai.pth"
-model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
-print(f"âœ… Model: {model_path}")
+# TTS Model load
+tts = None
+if TTS_OK:
+    try:
+        print("🔄 XTTS model load ho raha hai (thoda time lagega)...")
+        tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+        print("✅ XTTS ready!")
+    except Exception as e:
+        print(f"❌ XTTS load fail: {e}")
+        tts = None
 
-tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
-
-# Custom Ramai.pth weights inject
-try:
-    ckpt = torch.load(model_path, map_location=device)
-    sd = ckpt.get("model", ckpt.get("state_dict", ckpt))
-    if isinstance(sd, dict):
-        tts.synthesizer.tts_model.load_state_dict(sd, strict=False)
-        print("âœ… Ramai.pth weights loaded!")
-except Exception as e:
-    print(f"âš ï¸  Custom weights skip: {e}")
+# Custom Ramai.pth inject
+if tts is not None and HF_OK and TORCH_OK:
+    try:
+        model_path = hf_hub_download(
+            repo_id="Shriramnag/My-Shriram-Voice",
+            filename="Ramai.pth"
+        )
+        ckpt = torch.load(model_path, map_location=device)
+        sd = ckpt.get("model", ckpt.get("state_dict", ckpt))
+        if isinstance(sd, dict):
+            tts.synthesizer.tts_model.load_state_dict(sd, strict=False)
+            print("✅ Ramai.pth custom weights loaded!")
+    except Exception as e:
+        print(f"⚠️ Ramai.pth skip: {e}")
 
 G_RAW = "https://raw.githubusercontent.com/shriramnag/Aivoicebox/main/%F0%9F%93%81%20voices/"
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# NUMBERS â†’ WORDS
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-HINDI_NUMS = {'0':'à¤¶à¥‚à¤¨à¥à¤¯','1':'à¤à¤•','2':'à¤¦à¥‹','3':'à¤¤à¥€à¤¨','4':'à¤šà¤¾à¤°',
-              '5':'à¤ªà¤¾à¤à¤š','6':'à¤›à¤¹','7':'à¤¸à¤¾à¤¤','8':'à¤†à¤ ','9':'à¤¨à¥Œ'}
+# ════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ════════════════════════════════════════════════════════════
+HINDI_NUMS = {'0':'शून्य','1':'एक','2':'दो','3':'तीन','4':'चार',
+              '5':'पाँच','6':'छह','7':'सात','8':'आठ','9':'नौ'}
 EN_NUMS    = {'0':'zero','1':'one','2':'two','3':'three','4':'four',
               '5':'five','6':'six','7':'seven','8':'eight','9':'nine'}
 
@@ -78,10 +189,6 @@ def replace_numbers(text, lang):
     def _r(m): return ' '.join(nmap[d] for d in m.group())
     return re.sub(r'\d+', _r, text)
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# LANGUAGE DETECTION
-# Rule: Koi Devanagari = Hindi. Pure English 50%+ chars pe.
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 def detect_lang(text):
     hi = len(re.findall(r'[\u0900-\u097F]', text))
     en = len(re.findall(r'[a-zA-Z]', text))
@@ -90,52 +197,37 @@ def detect_lang(text):
     if en / tot > 0.5: return "en"
     return "hi"
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# SMART TEXT SPLITTER â€” 10 word limit
-# XTTS Hindi mein 10+ words ke baad drift karta hai
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 MAX_WORDS = 10
 
 def smart_split(text):
     parts = re.split(r'(\[pause\]|\[breath\]|\[laugh\])', text)
     chunks = []
-
     for part in parts:
         part = part.strip()
         if not part: continue
         if part in ['[pause]','[breath]','[laugh]']:
             chunks.append(part); continue
-
-        # Sentence boundaries pe split
         sentences = re.split(
-            r'(?<=[à¥¤!?à¥¥])\s+|(?<=[.!?])\s+(?=[A-Z\u0900-\u097F])',
-            part
+            r'(?<=[।!?॥])\s+|(?<=[.!?])\s+(?=[A-Z\u0900-\u097F])', part
         )
         for sent in sentences:
             sent = sent.strip()
             if not sent: continue
             words = sent.split()
-
             if len(words) <= MAX_WORDS:
                 if len(sent) > 1: chunks.append(sent)
             else:
-                # Word limit enforce karo
                 buf = []
                 for w in words:
                     buf.append(w)
-                    at_break = (w.endswith((',','â€”','-')) or
-                                len(buf) >= MAX_WORDS)
-                    if at_break:
+                    if w.endswith((',','—','-')) or len(buf) >= MAX_WORDS:
                         chunks.append(' '.join(buf)); buf = []
                 if buf: chunks.append(' '.join(buf))
-
     return [c for c in chunks if c]
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# REFERENCE AUDIO PREP
-# XTTS speaker encoder: 22050Hz mono prefer karta hai
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 def prepare_ref(path):
+    if not PYDUB_OK:
+        return path
     audio = AudioSegment.from_file(path)
     audio = audio.set_channels(1).set_frame_rate(22050)
     audio = effects.normalize(audio)
@@ -144,14 +236,11 @@ def prepare_ref(path):
     audio = audio[:30000]
     out = "ref_prepared.wav"
     audio.export(out, format="wav")
-    print(f"âœ… Ref ready: {len(audio)/1000:.1f}s")
     return out
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# LOUDNESS MATCH â€” Original ke RMS pe laao
-# Original RMS: ~4953, Peak: 32393/32767
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 def match_loudness(audio, target=4900):
+    if not NUMPY_OK or not PYDUB_OK:
+        return audio
     audio = audio.set_channels(1).set_frame_rate(44100).set_sample_width(2)
     samp = np.array(audio.get_array_of_samples(), dtype=np.float32)
     rms = np.sqrt(np.mean(samp**2))
@@ -162,49 +251,66 @@ def match_loudness(audio, target=4900):
                              sample_width=2, channels=1)
     return effects.normalize(audio)
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# TTS PARAMS â€” Haklahat fix
-# temperature=0.75: freeze nahi hoga
-# rep_penalty=2.5: real repetition hi rokega
-# top_k=50: enough Hindi vocab
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 def tts_cfg(speed):
     return dict(temperature=0.75, repetition_penalty=2.5,
                 top_k=50, top_p=0.85, speed=speed)
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ════════════════════════════════════════════════════════════
 # MAIN GENERATE
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ════════════════════════════════════════════════════════════
 def generate(text, up_ref, git_ref, speed, pitch,
              use_silence, use_clean, progress=gr.Progress()):
 
-    emap = load_english_map()  # Brain se English map load
-    errors_log = []
-    lang_log = []
+    # Safety checks
+    if not text or not text.strip():
+        return None, "⚠️ Script khaali hai — kuch likho pehle।"
+    if tts is None:
+        return None, "❌ TTS model load nahi hua। Requirements check karein।"
+    if not PYDUB_OK:
+        return None, "❌ pydub install nahi hai।\nCommand: pip install pydub"
 
-    # Reference prepare
+    emap = load_english_map()
+    errors_log = []
+
+    # Reference audio
+    ref = None
     if up_ref:
-        ref = prepare_ref(up_ref)
+        try:
+            ref = prepare_ref(up_ref)
+        except Exception as e:
+            return None, f"❌ Reference audio process nahi hua: {e}"
+    elif REQUESTS_OK:
+        try:
+            raw = "ref_raw.wav"
+            url = G_RAW + requests.utils.quote(git_ref)
+            r = requests.get(url, timeout=20)
+            if r.status_code != 200:
+                return None, f"❌ GitHub se voice nahi mili ({r.status_code})। Apni voice upload karein।"
+            with open(raw,"wb") as f: f.write(r.content)
+            ref = prepare_ref(raw)
+        except Exception as e:
+            return None, f"❌ Voice download fail: {e}"
     else:
-        raw = "ref_raw.wav"
-        url = G_RAW + requests.utils.quote(git_ref)
-        r = requests.get(url, timeout=15)
-        if r.status_code != 200:
-            return None, f"âŒ GitHub se voice nahi mili ({r.status_code})"
-        with open(raw,"wb") as f: f.write(r.content)
-        ref = prepare_ref(raw)
+        return None, "❌ requests nahi hai — apni voice upload karein।"
+
+    if not ref or not os.path.exists(ref):
+        return None, "❌ Reference voice file nahi mili।"
 
     chunks = smart_split(text)
     total  = len(chunks)
-    print(f"ðŸ“ {total} chunks")
+    if total == 0:
+        return None, "⚠️ Text mein koi valid content nahi mila।"
 
+    print(f"📝 {total} chunks")
     combined = AudioSegment.empty()
     cfg = tts_cfg(speed)
 
     for i, chunk in enumerate(chunks):
-        progress((i+1)/total, desc=f"ðŸŽ™ï¸ {i+1}/{total}: {chunk[:30]}...")
+        try:
+            progress((i+1)/total, desc=f"🎙️ {i+1}/{total}: {chunk[:30]}...")
+        except:
+            pass
 
-        # Markers
         if chunk == "[pause]":
             combined += AudioSegment.silent(800); continue
         elif chunk == "[breath]":
@@ -212,53 +318,39 @@ def generate(text, up_ref, git_ref, speed, pitch,
         elif chunk == "[laugh]":
             combined += AudioSegment.silent(100); continue
 
-        lang = detect_lang(chunk)
-        lang_log.append({"chunk": chunk[:40], "lang": lang})
-
-        # â”€â”€ ENGLISH FIX (Brain) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        # Hindi text mein English words â†’ phonetic Hindi
-        if lang == "hi":
-            clean = fix_english_in_hindi(chunk, emap)
-        else:
-            clean = chunk
-
+        lang  = detect_lang(chunk)
+        clean = fix_english_in_hindi(chunk, emap) if lang == "hi" else chunk
         clean = replace_numbers(clean, lang)
         clean = re.sub(r'\s+', ' ', clean).strip()
 
-        # Safe chars
         if lang == "hi":
-            clean = re.sub(r'[^\u0900-\u097F\s,!?à¥¤à¥¥\'"a-z%-]', ' ', clean)
+            clean = re.sub(r'[^\u0900-\u097F\s,!?।॥\'"a-z%-]', ' ', clean)
         else:
             clean = re.sub(r'[^a-zA-Z0-9\s,!?.\'"%-]', ' ', clean)
         clean = re.sub(r'\s+', ' ', clean).strip()
 
         if len(clean) < 2: continue
-
         print(f"  [{i+1}] ({lang}) '{clean[:50]}'")
+
         out = f"chunk_{i}.wav"
-        ok = False
+        ok  = False
 
         try:
             tts.tts_to_file(text=clean, speaker_wav=ref,
                             language=lang, file_path=out, **cfg)
             ok = True
         except Exception as e:
-            print(f"  âŒ Fail: {e}")
-            errors_log.append({
-                "chunk": clean[:40], "lang": lang,
-                "error": str(e),
-                "word": clean.split()[0] if clean else ""
-            })
-            # Retry â€” loose params
+            print(f"  ❌ {e}")
+            errors_log.append({"word": clean.split()[0] if clean else "",
+                               "error": str(e)})
             try:
-                tts.tts_to_file(text=clean, speaker_wav=ref,
-                                language=lang, file_path=out,
-                                speed=speed, temperature=0.85,
-                                repetition_penalty=1.5, top_k=80)
+                tts.tts_to_file(text=clean, speaker_wav=ref, language=lang,
+                                file_path=out, speed=speed,
+                                temperature=0.85, repetition_penalty=1.5, top_k=80)
                 ok = True
-                print(f"  â™»ï¸  Retry success")
+                print(f"  ♻️ Retry OK")
             except Exception as e2:
-                print(f"  ðŸ’€ Retry fail: {e2}")
+                print(f"  💀 Retry fail: {e2}")
 
         if ok and os.path.exists(out):
             seg = AudioSegment.from_wav(out).set_channels(1)
@@ -266,20 +358,17 @@ def generate(text, up_ref, git_ref, speed, pitch,
                 try: seg = effects.strip_silence(seg, silence_thresh=-42, padding=80)
                 except: pass
             combined += seg
-
-            # â”€â”€ GAP FIX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            # Har chunk ke baad content-aware pause
-            # (Pehle sab jagah 60ms tha â€” yahi "dusri line" thi)
             pause_ms = get_inter_chunk_pause(chunk)
             if pause_ms > 0:
                 combined += AudioSegment.silent(pause_ms)
 
         if os.path.exists(out): os.remove(out)
-
-        if i % 5 == 0:
+        if TORCH_OK and i % 5 == 0:
             torch.cuda.empty_cache(); gc.collect()
 
-    # Final audio
+    if len(combined) == 0:
+        return None, "❌ Koi audio generate nahi hua। Error log check karein।"
+
     if use_clean:
         combined = match_loudness(combined)
     else:
@@ -290,31 +379,60 @@ def generate(text, up_ref, git_ref, speed, pitch,
 
     final = "Shri_Ram_Nag_Output.wav"
     combined.export(final, format="wav", parameters=["-ar","44100","-ac","1"])
-    print(f"âœ… Output: {final} ({len(combined)/1000:.1f}s)")
+    print(f"✅ Output ready: {final} ({len(combined)/1000:.1f}s)")
 
-    # â”€â”€ BRAIN SEEKHTA HAI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    record_generation(text[:80], total, errors_log, 0)
+    record_generation(text[:80], total, errors_log)
 
-    # GitHub sync (har generation ke baad)
-    if GITHUB_TOKEN:
-        sync_result = sync_to_github(GITHUB_TOKEN, GITHUB_REPO)
-        print(f"ðŸ”„ {sync_result}")
+    if GITHUB_TOKEN and BRAIN_OK:
+        try: sync_to_github(GITHUB_TOKEN, GITHUB_REPO)
+        except: pass
 
-    status_msg = f"âœ… Taiyaar! {total} chunks"
+    msg = f"✅ {total} chunks | {len(combined)/1000:.1f}s"
     if errors_log:
-        status_msg += f" | âš ï¸ {len(errors_log)} error(s) â€” brain ne yaad rakha"
-        # Brain ne failre yaad rakha â€” agli baar fix try karega
-        failed_words = [e.get("word","") for e in errors_log if e.get("word")]
-        if failed_words:
-            status_msg += f"\nðŸ’¡ Sikhane ke liye 'Brain Ko Sikhao' tab mein jaayein: {', '.join(set(failed_words))}"
+        failed = list(set(e.get("word","") for e in errors_log if e.get("word")))
+        msg += f"\n⚠️ {len(errors_log)} error(s) — 'Brain Ko Sikhao' tab mein fix karein"
+        if failed: msg += f": {', '.join(failed[:5])}"
 
-    return final, status_msg
+    return final, msg
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ════════════════════════════════════════════════════════════
+# STARTUP STATUS — App launch hone pe kya ready hai dikhao
+# ════════════════════════════════════════════════════════════
+def get_system_status():
+    lines = ["## 🔧 System Status\n"]
+    checks = [
+        ("🧠 brain.py", BRAIN_OK),
+        ("🔊 TTS Model", tts is not None),
+        ("🎵 pydub", PYDUB_OK),
+        ("🔢 numpy", NUMPY_OK),
+        ("🌐 requests", REQUESTS_OK),
+        ("🔥 torch", TORCH_OK),
+        ("🤗 huggingface_hub", HF_OK),
+        ("🔑 GitHub Token", bool(GITHUB_TOKEN)),
+    ]
+    all_ok = True
+    for name, ok in checks:
+        status = "✅" if ok else "❌"
+        if not ok: all_ok = False
+        lines.append(f"{status} {name}")
+
+    if not all_ok:
+        lines.append("\n**Fix karne ke liye:**")
+        if not PYDUB_OK: lines.append("```\npip install pydub\n```")
+        if not NUMPY_OK: lines.append("```\npip install numpy\n```")
+        if tts is None: lines.append("```\npip install TTS\n```")
+        if not BRAIN_OK: lines.append("⚠️ brain.py isi folder mein rakho")
+    else:
+        lines.append("\n✅ **Sab kuch ready hai!**")
+
+    return "\n".join(lines)
+
+# ════════════════════════════════════════════════════════════
 # UI
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ════════════════════════════════════════════════════════════
 js = """function insertTag(tag) { 
     var t=document.querySelector('#script_box textarea'); 
+    if(!t) return;
     var s=t.selectionStart; 
     t.value=t.value.substring(0,s)+' '+tag+' '+t.value.substring(t.selectionEnd); 
     t.focus(); return t.value; 
@@ -323,132 +441,126 @@ js = """function insertTag(tag) {
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange"), js=js) as demo:
 
     gr.Markdown("""
-    # ðŸš© à¤¶à¤¿à¤µ AI v4.0 â€” à¤¶à¥à¤°à¥€ à¤°à¤¾à¤® à¤¨à¤¾à¤—
+    # 🚩 शिव AI v4.1 — श्री राम नाग
     ### Self-Learning | English Fix | Gap Fix | Haklahat-Free
-    > âœ… English phonetic fix &nbsp;|&nbsp; âœ… Gap fix (0ms) &nbsp;|&nbsp; 
-    > âœ… temperature=0.75 &nbsp;|&nbsp; âœ… GitHub brain sync
     """)
+
+    # Warning banner agar kuch missing ho
+    if not TTS_OK or not PYDUB_OK:
+        gr.Markdown("""
+        > ⚠️ **Kuch libraries missing hain — niche Status tab mein dekho**
+        """)
 
     with gr.Tabs():
 
-        # â”€â”€ TAB 1: GENERATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        with gr.TabItem("ðŸŽ™ï¸ à¤†à¤µà¤¾à¤œà¤¼ à¤¬à¤¨à¤¾à¤à¤‚"):
+        # ── TAB 1: GENERATION ────────────────────────────
+        with gr.TabItem("🎙️ आवाज़ बनाएं"):
             with gr.Row():
                 with gr.Column(scale=2):
                     txt = gr.Textbox(
-                        label="ðŸ“ à¤¸à¥à¤•à¥à¤°à¤¿à¤ªà¥à¤Ÿ (à¤¹à¤¿à¤‚à¤¦à¥€ / English / Mixed)",
+                        label="📝 Script (हिंदी / English / Mixed)",
                         lines=12, elem_id="script_box",
                         placeholder=(
-                            "à¤¯à¤¹à¤¾à¤ script à¤²à¤¿à¤–à¥‡à¤‚...\n\n"
-                            "à¤‰à¤¦à¤¾à¤¹à¤°à¤£:\n"
-                            "à¤¨à¤®à¤¸à¥à¤•à¤¾à¤° à¤¦à¥‹à¤¸à¥à¤¤à¥‹à¤‚, à¤†à¤œ à¤¹à¤® AI technology à¤•à¥‡ à¤¬à¤¾à¤°à¥‡ à¤®à¥‡à¤‚ à¤¬à¤¾à¤¤ à¤•à¤°à¥‡à¤‚à¤—à¥‡à¥¤\n"
-                            "YouTube à¤ªà¤° subscribe à¤•à¤°à¤¨à¤¾ à¤®à¤¤ à¤­à¥‚à¤²à¥‡à¤‚à¥¤\n\n"
-                            "ðŸ’¡ English words à¤…à¤ªà¤¨à¥‡ à¤†à¤ª à¤ à¥€à¤• à¤¹à¥‹ à¤œà¤¾à¤à¤‚à¤—à¥‡à¥¤\n"
-                            "ðŸ’¡ [pause] à¤¸à¥‡ à¤°à¥à¤•à¤¾à¤µà¤Ÿ, [breath] à¤¸à¥‡ à¤¸à¤¾à¤‚à¤¸ à¤œà¥‹à¤¡à¤¼à¥‡à¤‚à¥¤"
+                            "यहाँ script लिखें...\n\n"
+                            "उदाहरण:\n"
+                            "नमस्कार दोस्तों, आज हम AI technology\n"
+                            "के बारे में बात करेंगे।\n"
+                            "YouTube पर subscribe करना मत भूलें।"
                         )
                     )
-                    wc = gr.Markdown("ðŸ“Š à¤¶à¤¬à¥à¤¦: 0")
+                    wc = gr.Markdown("📊 शब्द: 0")
                     txt.change(
-                        lambda x: f"ðŸ“Š à¤¶à¤¬à¥à¤¦: **{len(x.split()) if x.strip() else 0}**",
+                        lambda x: f"📊 शब्द: **{len(x.split()) if x.strip() else 0}**",
                         [txt],[wc]
                     )
                     with gr.Row():
-                        gr.Button("â¸ï¸ [pause]").click(None,None,txt,js="()=>insertTag('[pause]')")
-                        gr.Button("ðŸ’¨ [breath]").click(None,None,txt,js="()=>insertTag('[breath]')")
-                        gr.Button("ðŸ˜Š [laugh]").click(None,None,txt,js="()=>insertTag('[laugh]')")
+                        gr.Button("⏸️ [pause]").click(None,None,txt,js="()=>insertTag('[pause]')")
+                        gr.Button("💨 [breath]").click(None,None,txt,js="()=>insertTag('[breath]')")
+                        gr.Button("😊 [laugh]").click(None,None,txt,js="()=>insertTag('[laugh]')")
 
                 with gr.Column(scale=1):
                     git_ref = gr.Dropdown(
                         choices=["aideva.wav","Joanne.wav"],
-                        label="ðŸ“ GitHub Voice", value="aideva.wav"
+                        label="📁 GitHub Voice", value="aideva.wav"
                     )
-                    up_ref = gr.Audio(label="ðŸŽ¤ à¤…à¤ªà¤¨à¥€ Voice Upload", type="filepath")
-                    with gr.Accordion("âš™ï¸ Settings", open=True):
-                        spd = gr.Slider(0.9,1.4,1.1,step=0.05,label="Speed (1.1 = best)")
+                    up_ref = gr.Audio(label="🎤 अपनी Voice Upload", type="filepath")
+                    with gr.Accordion("⚙️ Settings", open=True):
+                        spd = gr.Slider(0.9,1.4,1.1,step=0.05,label="Speed")
                         ptc = gr.Slider(0.8,1.1,0.96,label="Pitch")
-                        cln = gr.Checkbox(label="âœ… Loudness Match", value=True)
-                        sln = gr.Checkbox(label="âœ… Silence Remover", value=True)
-                    btn = gr.Button("ðŸš€ Generate", variant="primary", size="lg")
+                        cln = gr.Checkbox(label="✅ Loudness Match",value=True)
+                        sln = gr.Checkbox(label="✅ Silence Remover",value=True)
+                    btn = gr.Button("🚀 Generate",variant="primary",size="lg")
 
-            out_audio  = gr.Audio(label="ðŸŽ§ Output", type="filepath", autoplay=True)
+            out_audio  = gr.Audio(label="🎧 Output",type="filepath",autoplay=True)
             out_status = gr.Markdown("")
 
             btn.click(generate,
                       [txt,up_ref,git_ref,spd,ptc,sln,cln],
-                      [out_audio, out_status])
+                      [out_audio,out_status])
 
-        # â”€â”€ TAB 2: BRAIN TRAINING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        with gr.TabItem("ðŸ§  Brain Ko Sikhao"):
+        # ── TAB 2: BRAIN TRAINING ─────────────────────────
+        with gr.TabItem("🧠 Brain Ko Sikhao"):
             gr.Markdown("""
-            ## Brain Ko à¤¨à¤ˆ à¤¬à¤¾à¤¤ à¤¸à¤¿à¤–à¤¾à¤à¤‚
+            ## Brain को नई बात सिखाएं
 
-            à¤…à¤—à¤° à¤•à¥‹à¤ˆ **English word à¤—à¤²à¤¤ à¤¬à¥‹à¤²à¤¾** à¤œà¤¾ à¤°à¤¹à¤¾ à¤¹à¥ˆ â€”  
-            à¤¨à¥€à¤šà¥‡ à¤¸à¤¹à¥€ à¤¬à¤¤à¤¾à¤à¤‚à¥¤ Brain à¤¯à¤¾à¤¦ à¤°à¤– à¤²à¥‡à¤—à¤¾à¥¤
+            कोई English word गलत बोला?  
+            नीचे सही बताएं — brain याद रख लेगा।
 
-            **à¤‰à¤¦à¤¾à¤¹à¤°à¤£ corrections:**
-            | à¤—à¤²à¤¤ word | à¤¸à¤¹à¥€ Hindi |
-            |----------|-----------|
-            | YouTube | à¤¯à¥‚à¤Ÿà¥à¤¯à¥‚à¤¬ |
-            | subscribe | à¤¸à¤¬à¥à¤¸à¤•à¥à¤°à¤¾à¤‡à¤¬ |
-            | AI | à¤ à¤†à¤ˆ |
-            | technology | à¤Ÿà¥‡à¤•à¥à¤¨à¥‹à¤²à¥‰à¤œà¥€ |
+            | गलत word | सही Hindi phonetic |
+            |----------|-------------------|
+            | YouTube | यूट्यूब |
+            | technology | टेक्नोलॉजी |
+            | subscribe | सब्सक्राइब |
+            | AI | ए आई |
             """)
-
-            with gr.Row():
-                with gr.Column():
-                    wrong_w   = gr.Textbox(label="âŒ à¤•à¥Œà¤¨ à¤¸à¤¾ word à¤—à¤²à¤¤ à¤¬à¥‹à¤²à¤¾?",
-                                           placeholder="à¤œà¥ˆà¤¸à¥‡: technology")
-                    correct_w = gr.Textbox(label="âœ… à¤¸à¤¹à¥€ Hindi phonetic?",
-                                           placeholder="à¤œà¥ˆà¤¸à¥‡: à¤Ÿà¥‡à¤•à¥à¤¨à¥‹à¤²à¥‰à¤œà¥€")
-                    teach_btn = gr.Button("ðŸ§  Brain à¤•à¥‹ à¤¸à¤¿à¤–à¤¾à¤“", variant="primary")
-                    teach_out = gr.Markdown("")
-                    teach_btn.click(user_teaches, [wrong_w, correct_w], teach_out)
+            wrong_w   = gr.Textbox(label="❌ गलत word",placeholder="जैसे: technology")
+            correct_w = gr.Textbox(label="✅ सही Hindi",placeholder="जैसे: टेक्नोलॉजी")
+            teach_btn = gr.Button("🧠 Brain को सिखाओ",variant="primary")
+            teach_out = gr.Markdown("")
+            teach_btn.click(user_teaches,[wrong_w,correct_w],teach_out)
 
             gr.Markdown("---")
-            gr.Markdown("## ðŸ“Š Brain Report â€” à¤…à¤¬ à¤¤à¤• à¤•à¥à¤¯à¤¾ à¤¸à¥€à¤–à¤¾?")
-            stat_btn    = gr.Button("ðŸ” Report à¤¦à¥‡à¤–à¥‹")
-            brain_stats = gr.Markdown("")
-            stat_btn.click(get_stats, [], brain_stats)
+            stat_btn  = gr.Button("📊 Brain Report देखो")
+            brain_out = gr.Markdown("")
+            stat_btn.click(get_stats,[],brain_out)
 
-        # â”€â”€ TAB 3: GITHUB SYNC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        with gr.TabItem("ðŸ”„ GitHub Brain Sync"):
+        # ── TAB 3: STATUS ─────────────────────────────────
+        with gr.TabItem("🔧 System Status"):
+            gr.Markdown(get_system_status())
             gr.Markdown("""
-            ## GitHub à¤¸à¥‡ Brain Connect à¤•à¤°à¥‡à¤‚
-
-            **à¤•à¥à¤¯à¥‹à¤‚ à¤œà¤°à¥‚à¤°à¥€:**  
-            Server restart à¤¹à¥‹à¤¨à¥‡ à¤ªà¤° brain à¤•à¥€ memory à¤–à¥‹ à¤œà¤¾à¤¤à¥€ à¤¹à¥ˆà¥¤  
-            GitHub token à¤¦à¥‡à¤¨à¥‡ à¤ªà¤° memory save à¤¹à¥‹à¤¤à¥€ à¤°à¤¹à¤¤à¥€ à¤¹à¥ˆ â€”  
-            à¤…à¤—à¤²à¥€ à¤¬à¤¾à¤° app start à¤¹à¥‹ à¤¤à¥‹ à¤¸à¤¬ à¤¯à¤¾à¤¦ à¤°à¤¹à¤¤à¤¾ à¤¹à¥ˆà¥¤
-
-            **Hugging Face Spaces à¤ªà¤° token à¤•à¥ˆà¤¸à¥‡ set à¤•à¤°à¥‡à¤‚:**
-            ```
-            Settings â†’ Variables and Secrets â†’ New Secret
-            Name: GITHUB_TOKEN
-            Value: ghp_aapka_token_yahan
+            ---
+            ## Requirements Install करने के लिए:
+            ```bash
+            pip install TTS pydub numpy gradio requests huggingface_hub torch
             ```
 
-            **GitHub Token à¤•à¥ˆà¤¸à¥‡ à¤¬à¤¨à¤¾à¤à¤‚:**
-            ```
-            GitHub â†’ Settings â†’ Developer settings
-            â†’ Personal access tokens â†’ Tokens (classic)
-            â†’ Generate â†’ repo permission à¤¦à¥‡à¤‚ â†’ Copy
-            ```
+            ## brain.py missing है?
+            brain.py और app.py **same folder** में होने चाहिए।
             """)
 
-            with gr.Row():
-                gh_token = gr.Textbox(label="ðŸ”‘ GitHub Token",
-                                      placeholder="ghp_xxxxxxxxxxxxxxxx",
-                                      type="password")
-                gh_repo  = gr.Textbox(label="ðŸ“ Repo",
-                                      value="shriramnag/Aivoicebox")
+        # ── TAB 4: GITHUB SYNC ────────────────────────────
+        with gr.TabItem("🔄 GitHub Sync"):
+            gr.Markdown("""
+            ## GitHub से Brain Connect करें
 
-            sync_btn = gr.Button("ðŸ”„ à¤…à¤­à¥€ Sync à¤•à¤°à¥‹", variant="primary")
+            **Hugging Face Spaces पर:**
+            ```
+            Settings → Variables and Secrets → New Secret
+            Name:  GITHUB_TOKEN
+            Value: ghp_aapka_token
+            ```
+            """)
+            gh_token = gr.Textbox(label="🔑 GitHub Token",
+                                  placeholder="ghp_xxxxxxxx",type="password")
+            gh_repo  = gr.Textbox(label="📁 Repo",value="shriramnag/Aivoicebox")
+            sync_btn = gr.Button("🔄 Sync Karo",variant="primary")
             sync_out = gr.Markdown("")
 
-            def manual_sync(tok, repo):
-                if not tok: return "âš ï¸ Token daaloà¥¤"
-                return sync_to_github(tok, repo)
+            def do_sync(tok,repo):
+                if not tok: return "⚠️ Token daalo।"
+                return sync_to_github(tok,repo)
 
-            sync_btn.click(manual_sync, [gh_token, gh_repo], sync_out)
+            sync_btn.click(do_sync,[gh_token,gh_repo],sync_out)
 
+print("\n✅ App ready — launch ho raha hai...")
 demo.launch(share=True)
