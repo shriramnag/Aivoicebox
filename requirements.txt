@@ -2,3 +2,6 @@ coqui-tts
 gradio
 huggingface_hub
 pydub
+soundfile
+librosa
+TTS
