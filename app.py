@@ -7,34 +7,34 @@ from pydub import AudioSegment, effects
 os.environ["COQUI_TOS_AGREED"] = "1"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# २. मास्टर मॉडल और फाइलों का इंटीग्रेशन (Hugging Face से) [cite: 2026-02-26]
-# आपके स्क्रीनशॉट के अनुसार सही रिपॉजिटरी: Shriramnag/My-Shriram-Voice
+# २. मास्टर मॉडल इंटीग्रेशन (Hugging Face स्क्रीनशॉट के अनुसार) [cite: 2026-02-26]
 REPO_ID = "Shriramnag/My-Shriram-Voice" 
-MODEL_FILE = "Ramai.pth" # आपका वर्किंग मॉडल [cite: 2026-02-16]
+MODEL_FILE = "Ramai.pth" 
 
-print("श्री राम नाग जी, हगिंग फेस से फाइलों को टर्बो मोड में जोड़ा जा रहा है...")
+print("श्री राम नाग जी, ब्रह्मास्त्र लोड हो रहा है...")
 model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
-# ONNX और अन्य फाइलों को कैश में सुनिश्चित करना
-hf_hub_download(repo_id=REPO_ID, filename="config.json")
-hf_hub_download(repo_id=REPO_ID, filename="tokenizer.json")
+# स्क्रीनशॉट में दिख रही ज़रूरी फाइलों का लोड सुनिश्चित करना
+for f in ["config.json", "tokenizer.json", "speech_encoder.onnx"]:
+    hf_hub_download(repo_id=REPO_ID, filename=f)
 
 tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 G_RAW = "https://raw.githubusercontent.com/shriramnag/Aivoicebox/main/%F0%9F%93%81%20voices/"
 
-# ३. हकलाहट रोकने के लिए मास्टर टेक्स्ट क्लीनर (LOCKED) [cite: 2026-02-20]
+# ३. हकलाहट रोकने के लिए मास्टर टेक्स्ट क्लीनर [cite: 2026-02-20]
 def shiv_super_cleaner(text):
-    # नंबर फिक्स [2026-02-20]
+    if not text: return ""
+    # नंबर फिक्स (शब्दों में) [cite: 2026-02-20]
     num_map = {'0':'शून्य','1':'एक','2':'दो','3':'तीन','4':'चार','5':'पाँच','6':'छह','7':'सात','8':'आठ','9':'नौ'}
     for n, w in num_map.items(): text = text.replace(n, w)
     
-    # मुश्किल शब्दों को तोड़ना ताकि AI न अटके
-    brain_fix = {"जिंदगी": "ज़िन्दगी", "भागदौड़": "भाग दौड़", "YouTube": "यूट्यूब", "AI": "ए आई"}
+    # डॉट को कोमा बनाना ताकि AI न हकलाए [cite: 2026-02-20]
+    text = text.replace('.', ',')
+    brain_fix = {"जिंदगी": "ज़िन्दगी", "YouTube": "यूट्यूब", "AI": "ए आई"}
     for k, v in brain_fix.items(): text = text.replace(k, v)
-    
     return text.strip()
 
-# ४. मुख्य इंजन - 'माइक्रो-चंकिंग' तकनीक (LOCKED) [cite: 2026-01-06]
+# ४. मुख्य इंजन - ऑडियो फिक्स और पिच कंट्रोल (LOCKED) [cite: 2026-01-06]
 def generate_shiv_v1_5(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean, progress=gr.Progress()):
     if not text: return None
     
@@ -44,7 +44,7 @@ def generate_shiv_v1_5(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use
         url = G_RAW + requests.utils.quote(git_ref)
         with open(ref, "wb") as f: f.write(requests.get(url).content)
 
-    # ⚡ हकलाहट फिक्स: वाक्यों को कोमा (,) और पूर्ण विराम (।) पर छोटे टुकड़ों में तोड़ना [cite: 2026-02-20]
+    # ⚡ वाक्यों का सटीक विभाजन (ताकि ऑडियो न कटे) [cite: 2026-02-20]
     chunks = re.split(r'([,।!?॥\n])', p_text)
     combined = AudioSegment.empty()
     
@@ -59,36 +59,42 @@ def generate_shiv_v1_5(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use
 
     for i, chunk in enumerate(valid_chunks):
         if len(chunk.strip()) < 2: continue
-        progress((i+1)/len(valid_chunks), desc="हकलाहट मुक्त जनरेशन जारी है...")
+        progress((i+1)/len(valid_chunks), desc="शिव एआई शुद्ध आवाज़ बना रहा है...")
         
-        # [pause] जैसे टैग्स को संभालना
         if "[pause]" in chunk: combined += AudioSegment.silent(duration=800); continue
         
-        name = f"final_chunk_{i}.wav"
-        # 🔒 सबसे सटीक XTTS सेटिंग्स: Penalty 1.2, Temp 0.1 [cite: 2026-02-20]
+        name = f"chunk_{i}.wav"
+        # 🔒 XTTS सटीक सेटिंग्स (Temperature 0.1 और Top_k 1 से हकलाहट बंद होती है) [cite: 2026-02-20]
         tts.tts_to_file(text=chunk.strip(), speaker_wav=ref, language="hi", file_path=name, 
                         speed=speed_s, repetition_penalty=1.2, temperature=0.1, top_k=1)
         
         seg = AudioSegment.from_wav(name)
-        if use_silence: # साइलेंस रिमूवर बटन [cite: 2026-01-06]
-            try: seg = effects.strip_silence(seg, silence_thresh=-45, padding=100)
+        
+        # पिच (Pitch) फिक्स टूल
+        if pitch_s != 1.0:
+            new_rate = int(seg.frame_rate * pitch_s)
+            seg = seg._spawn(seg.raw_data, overrides={'frame_rate': new_rate}).set_frame_rate(44100)
+
+        if use_silence: # साइलेंस रिमूवर (पैडिंग बढ़ाई गई है ताकि आवाज़ साफ़ रहे) [cite: 2026-01-06]
+            try: seg = effects.strip_silence(seg, silence_thresh=-45, padding=200)
             except: pass
+            
         combined += seg
         os.remove(name)
         torch.cuda.empty_cache(); gc.collect()
 
-    if use_clean: # Symmetry Clean टूल [cite: 2026-01-06]
+    if use_clean: # एआई बेस सफाई (Symmetry Clean) [cite: 2026-01-06]
         combined = combined.set_frame_rate(44100)
         combined = effects.normalize(combined)
     
-    final_p = "Shiv_AI_v1.5_Pure.wav"
+    final_p = "Shiv_AI_v1.5_Fixed.wav"
     combined.export(final_p, format="wav")
     return final_p
 
-# ५. दिव्य UI (वर्ड काउंटर के साथ) [cite: 2026-02-20]
+# ५. दिव्य UI (वर्ड काउंटर और पिच कंट्रोल के साथ) [cite: 2026-02-20]
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange")) as demo:
     gr.Markdown("# 🚩 शिव AI (Shiv AI) v1.5 — श्री राम नाग")
-    gr.Markdown("### 🔒 ब्रह्मास्त्र अपडेट: हकलाहट १०००% बंद | टर्बो हाई स्पीड [cite: 2026-01-06]")
+    gr.Markdown("### 🔒 टर्बो हाई स्पीड | ऑडियो फिक्स | हकलाहट मुक्त [cite: 2026-01-06]")
     
     with gr.Row():
         with gr.Column(scale=2):
@@ -99,13 +105,14 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange")) as demo:
         with gr.Column(scale=1):
             git_v = gr.Dropdown(choices=["aideva.wav"], label="वॉइस", value="aideva.wav")
             up_v = gr.Audio(label="सैंपल अपलोड", type="filepath")
-            with gr.Accordion("⚙️ सेटिंग्स (LOCKED)", open=True):
-                spd = gr.Slider(0.9, 1.4, 1.15, label="रफ़्तार")
-                cln = gr.Checkbox(label="एआई बेस सफाई (Symmetry)", value=True)
-                sln = gr.Checkbox(label="साइलेंस रिमूवर", value=True)
+            with gr.Accordion("⚙️ टूल्स और सेटिंग्स (LOCKED)", open=True):
+                spd = gr.Slider(0.8, 1.4, 1.15, label="रफ़्तार (Speed)")
+                ptch = gr.Slider(0.7, 1.3, 1.0, label="पिच (Pitch - आवाज़ भारी/पतली)")
+                cln = gr.Checkbox(label="Symmetry Clean (सफाई)", value=True)
+                sln = gr.Checkbox(label="Silence Remover (खामोशी हटाना)", value=True)
             btn = gr.Button("🚀 शुद्ध आवाज जनरेट करें", variant="primary")
             
-    out = gr.Audio(label="फाइनल आउटपुट", type="filepath", autoplay=True)
-    btn.click(generate_shiv_v1_5, [txt, up_v, git_v, spd, gr.State(1.0), sln, cln], out)
+    out = gr.Audio(label="शिव एआई आउटपुट", type="filepath", autoplay=True)
+    btn.click(generate_shiv_v1_5, [txt, up_v, git_v, spd, ptch, sln, cln], out)
 
 demo.launch(share=True)
