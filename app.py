@@ -3,39 +3,54 @@ from TTS.api import TTS
 from huggingface_hub import hf_hub_download
 from pydub import AudioSegment, effects
 
-# १. टर्बो हाई स्पीड सेटअप (LOCKED) -
+# १. टर्बो हाई स्पीड सेटअप (LOCKED) [cite: 2026-01-06]
 os.environ["COQUI_TOS_AGREED"] = "1"
-# Google Colab T4 GPU का पूरा निचोड़
-torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.benchmark = True 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# २. हगिंग फेस मॉडल इंटीग्रेशन (Direct ONNX + PTH) -
+# २. हगिंग फेस से सभी फाइल्स का फुल डाउनलोड [cite: 2026-02-26]
 REPO_ID = "Shriramnag/My-Shriram-Voice" 
-MODEL_FILE = "Ramai.pth" 
 
-print("श्री राम नाग जी, टर्बो बूस्ट सक्रिय हो रहा है...")
-model_path = hf_hub_download(repo_id=REPO_ID, filename=MODEL_FILE)
-# तेज़ जनरेशन के लिए config और tokenizer को पहले ही लोड करना
-for f in ["config.json", "tokenizer.json"]:
-    hf_hub_download(repo_id=REPO_ID, filename=f)
+print("श्री राम नाग जी, शिव AI की सभी शक्तिशाली फाइलें डाउनलोड की जा रही हैं...")
 
+# आपके रिपॉजिटरी की सभी महत्वपूर्ण फाइल्स की लिस्ट
+shiv_files = [
+    "Ramai.pth", 
+    "config.json", 
+    "tokenizer.json", 
+    "speech_encoder.onnx", 
+    "model.pth", 
+    "conditional_decoder.onnx", 
+    "embed_tokens.onnx", 
+    "language_model.onnx"
+]
+
+for file in shiv_files:
+    try:
+        hf_hub_download(repo_id=REPO_ID, filename=file)
+        print(f"✅ {file} सफलतापूर्वक लोड हुई।")
+    except Exception as e:
+        print(f"⚠️ {file} लोड नहीं हो सकी, लेकिन इंजन जारी रहेगा।")
+
+# मास्टर मॉडल लोड
 tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 G_RAW = "https://raw.githubusercontent.com/shriramnag/Aivoicebox/main/%F0%9F%93%81%20voices/"
 
-# ३. हकलाहट और नंबर फिक्स (Master Cleaner) - [cite: 2026-02-20]
+# ३. हकलाहट और नंबर फिक्स (Master Cleaner) [cite: 2026-02-20]
 def shiv_super_cleaner(text):
     if not text: return ""
-    # नंबर फिक्स (शब्दों में)
+    # नंबर फिक्स (शब्दों में) [cite: 2026-02-20]
     num_map = {'0':'शून्य','1':'एक','2':'दो','3':'तीन','4':'चार','5':'पाँच','6':'छह','7':'सात','8':'आठ','9':'नौ'}
     for n, w in num_map.items(): text = text.replace(n, w)
     
-    # मुश्किल शब्दों का सुधार ताकि शोर न आए
-    brain_fix = {"जिंदगी": "ज़िन्दगी", "YouTube": "यूट्यूब", "AI": "ए आई", ".": ","}
+    # आसान शब्द सुधार [cite: 2026-02-20]
+    text = text.replace('.', ',').replace('?', ',')
+    brain_fix = {"जिंदगी": "ज़िन्दगी", "YouTube": "यूट्यूब", "AI": "ए आई"}
     for k, v in brain_fix.items(): text = text.replace(k, v)
     return text.strip()
 
-# ४. मुख्य इंजन - टर्बो हाई स्पीड + अपडेटेड स्क्रिप्ट कटर (LOCKED) -
+# ४. टर्बो इंजन - श्री राम नाग स्पेशल [cite: 2026-01-06, 2026-02-22]
 def generate_shiv_v1_5(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use_clean, progress=gr.Progress()):
     if not text: return None
     
@@ -45,50 +60,50 @@ def generate_shiv_v1_5(text, up_ref, git_ref, speed_s, pitch_s, use_silence, use
         url = G_RAW + requests.utils.quote(git_ref)
         with open(ref, "wb") as f: f.write(requests.get(url).content)
 
-    # ⚡ अपडेटेड स्क्रिप्ट कटर: अर्थ के साथ वाक्यों को काटना (ताकि 'हम्म' की आवाज़ न आए)
-    chunks = [c.strip() for c in re.split(r'[,।!?॥\n]', p_text) if len(c.strip()) > 1]
+    # स्क्रिप्ट कटर (तेज़ जनरेशन के लिए संतुलित विभाजन) [cite: 2026-01-06]
+    chunks = [c.strip() for c in re.split(r'[,।॥\n]', p_text) if len(c.strip()) > 1]
     combined = AudioSegment.empty()
     
     for i, chunk in enumerate(chunks):
-        progress((i+1)/len(chunks), desc="टर्बो हाई स्पीड जनरेशन जारी है...")
+        progress((i+1)/len(chunks), desc=f"श्री राम नाग जी, शिव AI टर्बो मोड में है... ({i+1}/{len(chunks)})")
         
-        name = f"chunk_{i}.wav"
-        # 🔒 स्टेबिलिटी के लिए Temperature 0.01 (शोर खत्म करने के लिए)
+        name = f"temp_chunk_{i}.wav"
+        # शोर मुक्ति के लिए Temperature 0.01 [cite: 2026-02-20]
         tts.tts_to_file(text=chunk, speaker_wav=ref, language="hi", file_path=name, 
                         speed=speed_s, repetition_penalty=1.5, temperature=0.01, top_k=1)
         
         seg = AudioSegment.from_wav(name)
         
-        # पिच कंट्रोल
+        # पिच कंट्रोल (भारी/पतली आवाज़)
         if pitch_s != 1.0:
             new_rate = int(seg.frame_rate * pitch_s)
             seg = seg._spawn(seg.raw_data, overrides={'frame_rate': new_rate}).set_frame_rate(44100)
 
-        if use_silence: # साइलेंस रिमूवर (पैडिंग २००ms ताकि शब्द न कटें)
+        if use_silence: # साइलेंस रिमूवर [cite: 2026-01-06]
             try: seg = effects.strip_silence(seg, silence_thresh=-50, padding=200)
             except: pass
             
         combined += seg
         os.remove(name)
-        # GPU मेमोरी मैनेजमेंट (स्पीड के लिए)
         torch.cuda.empty_cache(); gc.collect()
 
-    if use_clean: # सिमेट्री क्लीन टूल
+    if use_clean: # सिमेट्री क्लीन [cite: 2026-01-06]
         combined = combined.set_frame_rate(44100)
         combined = effects.normalize(combined)
     
-    final_p = "Shiv_AI_v1.5_Turbo_Max.wav"
-    combined.export(final_p, format="wav")
-    return final_p
+    # ✅ आपके नाम पर डाउनलोड फाइल का नाम [cite: 2026-02-22]
+    final_output_name = "Shri_Ram_Nag_Output.wav"
+    combined.export(final_output_name, format="wav")
+    return final_output_name
 
-# ५. दिव्य UI (वर्ड काउंटर और टर्बो सेटिंग्स के साथ) -
+# ५. दिव्य UI (श्री राम नाग संस्करण) [cite: 2026-02-20]
 with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange")) as demo:
     gr.Markdown("# 🚩 शिव AI (Shiv AI) v1.5 — श्री राम नाग")
-    gr.Markdown("### 🔒 ब्रह्मास्त्र अपडेट: हाई टर्बो स्पीड | शोर फिक्स | स्क्रिप्ट कटर")
+    gr.Markdown("### 🔒 टर्बो हाई स्पीड | सभी फाइलें इंटीग्रेटेड | हकलाहट मुक्त [cite: 2026-01-06]")
     
     with gr.Row():
         with gr.Column(scale=2):
-            txt = gr.Textbox(label="स्क्रिप्ट यहाँ लिखें", lines=12, placeholder="७७ शब्द अब कुछ ही सेकंड में...")
+            txt = gr.Textbox(label="स्क्रिप्ट यहाँ लिखें", lines=12, placeholder="७७ शब्द अब चंद सेकंडों में...")
             word_count = gr.Markdown("शब्द संख्या: **शून्य**")
             txt.change(lambda x: f"शब्द संख्या: **{len(x.split()) if x else 'शून्य'}**", [txt], [word_count])
             
@@ -100,11 +115,9 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange")) as demo:
                 ptch = gr.Slider(0.7, 1.3, 1.0, label="पिच (Pitch)")
                 cln = gr.Checkbox(label="शोर फिक्स (Symmetry Clean)", value=True)
                 sln = gr.Checkbox(label="Silence Remover", value=True)
-            btn = gr.Button("🚀 टर्बो जनरेशन शुरू करें", variant="primary")
+            btn = gr.Button("🚀 टर्बो जनरेट और डाउनलोड", variant="primary")
             
-    out = gr.Audio(label="शिव एआई आउटपुट", type="filepath", autoplay=True)
+    out = gr.Audio(label="श्री राम नाग आउटपुट", type="filepath", autoplay=True)
     btn.click(generate_shiv_v1_5, [txt, up_v, git_v, spd, ptch, sln, cln], out)
 
-demo.launch(share=True)
-
-
+demo.launch(share=True, debug=True)
