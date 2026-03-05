@@ -242,16 +242,16 @@ def generate_shiv_v2(text, up_ref, git_ref, speed_s, pitch_s,
 
         try:
             # FIX #10: Low temperature = ज़्यादा stable आवाज़, कम हकलाहट
+            # XTTS v2 tts_to_file — safe params only
+            # temperature, repetition_penalty को synthesizer के through pass करो
+            tts.synthesizer.tts_config.model_args.temperature = float(temperature)
+            tts.synthesizer.tts_config.model_args.repetition_penalty = float(repetition_pen)
             tts.tts_to_file(
                 text=chunk,
                 speaker_wav=ref,
                 language="hi",
                 file_path=name,
-                speed=speed_s,
-                temperature=temperature,          # 0.3-0.5 = stable
-                repetition_penalty=repetition_pen, # 5.0+ = हकलाहट बंद
-                top_k=30,                         # कम top_k = ज़्यादा focused
-                top_p=0.85,
+                speed=float(speed_s),
             )
 
             seg = AudioSegment.from_wav(name)
@@ -348,18 +348,18 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="orange")) as demo:
             )
 
             with gr.Accordion("⚙️ जनरेशन सेटिंग्स", open=True):
-                spd = gr.Slider(0.8, 1.3, value=1.0, step=0.05,
+                spd = gr.Slider(minimum=0.8, maximum=1.3, value=1.0, step=0.05,
                                 label="रफ़्तार (1.0 = normal)")
-                ptch = gr.Slider(0.7, 1.3, value=1.0, step=0.05,
+                ptch = gr.Slider(minimum=0.7, maximum=1.3, value=1.0, step=0.05,
                                  label="पिच")
 
                 with gr.Row():
                     temp_sl = gr.Slider(
-                        0.1, 0.9, value=0.35, step=0.05,
+                        minimum=0.1, maximum=0.9, value=0.35, step=0.05,
                         label="Temperature (कम = stable, कम हकलाहट)"
                     )
                     rep_pen = gr.Slider(
-                        1.0, 10.0, value=6.0, step=0.5,
+                        minimum=1.0, maximum=10.0, value=6.0, step=0.5,
                         label="Repetition Penalty (ज़्यादा = बेहतर)"
                     )
 
